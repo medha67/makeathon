@@ -1,290 +1,179 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#172a26">
-  <title>Last Call | Subscription Management</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --ink: #1d2927;
-      --muted: #78837f;
-      --line: #e5eae6;
-      --paper: #fff;
-      --canvas: #f5f7f4;
-      --forest: #183c34;
-      --forest-soft: #24584b;
-      --lime: #d3ef83;
-      --coral: #e77e61;
-      --sky: #83b9d1;
-      --shadow: 0 12px 35px rgba(27, 49, 42, .055);
-      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--canvas); }
-    button, input, select { font: inherit; }
-    button { cursor: pointer; }
-    .app { min-height: 100vh; }
-    .sidebar {
-      position: fixed; inset: 0 auto 0 0; z-index: 5; width: 252px; padding: 27px 16px 18px;
-      display: flex; flex-direction: column; color: #e8f0e9; background: var(--forest);
-    }
-    .brand { display: flex; gap: 11px; align-items: center; padding: 0 11px 29px; }
-    .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--lime); color: var(--forest); font-size: 19px; font-weight: 900; }
-    .brand-name { font-family: Georgia, serif; font-size: 21px; letter-spacing: .1px; }
-    .nav-label { padding: 12px 12px 7px; color: #9ab0a6; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
-    .nav-list { display: grid; gap: 3px; }
-    .nav-link { display: flex; align-items: center; gap: 12px; min-height: 41px; padding: 0 12px; color: #ccdad2; text-decoration: none; border-radius: 7px; font-size: 13px; transition: background .16s, color .16s; }
-    .nav-link:hover, .nav-link.active { color: #fff; background: #2a5147; }
-    .nav-link.active { box-shadow: inset 3px 0 var(--lime); }
-    .nav-icon { width: 18px; text-align: center; font-size: 15px; opacity: .9; }
-    .sidebar-foot { margin-top: auto; padding: 14px 10px 0; border-top: 1px solid #31564c; }
-    .local-note { color: #aec1b7; font-size: 11px; line-height: 1.5; }
-    .sidebar-user { display: flex; gap: 10px; align-items: center; margin-top: 17px; }
-    .avatar { width: 33px; height: 33px; display: grid; place-items: center; border-radius: 50%; color: var(--forest); background: var(--lime); font-size: 12px; font-weight: 800; }
-    .user-name { font-size: 12px; font-weight: 650; }
-    .user-caption { margin-top: 2px; color: #a9beb4; font-size: 10px; }
-    .main { min-height: 100vh; margin-left: 252px; }
-    .topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 35px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); }
-    .crumb { color: var(--muted); font-size: 12px; }
-    .top-actions { display: flex; align-items: center; gap: 10px; }
-    .date-label { color: var(--muted); font-size: 12px; }
-    .content { max-width: 1480px; margin: 0 auto; padding: 32px 35px 48px; }
-    .page-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 25px; }
-    .eyebrow { margin-bottom: 7px; color: #628276; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
-    h1, h2, h3, p { margin-top: 0; }
-    h1 { margin-bottom: 7px; font-family: Georgia, serif; font-size: 30px; font-weight: 500; letter-spacing: 0; }
-    .subtitle { margin-bottom: 0; color: var(--muted); font-size: 13px; }
-    h2 { margin-bottom: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
-    .button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 0; border-radius: 6px; color: #fff; background: var(--forest); font-size: 12px; font-weight: 650; transition: background .15s, transform .15s; }
-    .button:hover { background: var(--forest-soft); transform: translateY(-1px); }
-    .button.secondary { color: var(--forest); background: #eaf0e9; }
-    .button.secondary:hover { background: #dce8df; }
-    .button.danger { min-height: 30px; padding: 0 9px; color: #a64e3c; background: #fff0ec; font-size: 11px; }
-    .button.danger:hover { background: #ffe2da; }
-    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 18px; }
-    .metric { position: relative; overflow: hidden; min-height: 124px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); box-shadow: var(--shadow); }
-    .metric:after { position: absolute; top: -20px; right: -16px; width: 82px; height: 82px; content: ""; border-radius: 50%; background: var(--metric-tint, #e5f1e7); opacity: .9; }
-    .metric-label { position: relative; z-index: 1; color: var(--muted); font-size: 12px; }
-    .metric-value { position: relative; z-index: 1; margin-top: 16px; font-family: Georgia, serif; font-size: 29px; }
-    .metric-mark { position: absolute; z-index: 1; top: 17px; right: 17px; color: var(--forest); font-size: 17px; }
-    .panel { margin-bottom: 17px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); box-shadow: var(--shadow); }
-    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
-    .panel-body { padding: 20px; }
-    .table-wrap { width: 100%; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
-    th { padding: 11px 13px; color: #77827d; background: #f8faf8; text-align: left; font-size: 10px; font-weight: 750; letter-spacing: .45px; text-transform: uppercase; }
-    td { padding: 12px 13px; border-top: 1px solid #edf0ed; font-size: 12px; }
-    tr:hover td { background: #fbfcfa; }
-    .empty { padding: 32px 14px; color: var(--muted); text-align: center; font-size: 12px; }
-    .toolbar { display: flex; align-items: center; gap: 9px; }
-    .search { width: min(230px, 45vw); min-height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 6px; outline: 0; background: #fff; font-size: 12px; }
-    .search:focus, input:focus, select:focus { border-color: #82a993; box-shadow: 0 0 0 3px rgba(69, 125, 97, .1); outline: 0; }
-    .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
-    .field label { display: block; margin-bottom: 7px; color: #586760; font-size: 11px; font-weight: 650; }
-    .field input, .field select { width: 100%; min-height: 39px; padding: 0 10px; border: 1px solid #dfe6e0; border-radius: 5px; color: var(--ink); background: #fff; font-size: 12px; }
-    .form-actions { display: flex; gap: 8px; grid-column: 1 / -1; padding-top: 2px; }
-    .status { display: inline-block; padding: 5px 8px; border-radius: 20px; color: #396e52; background: #e8f4e9; font-size: 10px; font-weight: 700; }
-    .status.pending, .status.unpaid { color: #9a6b22; background: #fff4dc; }
-    .status.cancelled { color: #a64e3c; background: #fff0ec; }
-    .split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, .8fr); gap: 17px; }
-    .summary-total { color: var(--forest); font-family: Georgia, serif; font-size: 34px; }
-    .muted-small { margin-top: 5px; color: var(--muted); font-size: 11px; }
-    .notice { position: fixed; z-index: 20; right: 22px; bottom: 20px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; border-radius: 6px; color: #fff; background: var(--forest); box-shadow: 0 8px 24px #172a2633; font-size: 12px; animation: enter .2s ease-out; }
-    @keyframes enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
-    .mobile-bar { display: none; }
-    @media (max-width: 1050px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .content { padding-inline: 23px; } .topbar { padding-inline: 23px; } }
-    @media (max-width: 700px) {
-      .sidebar { position: static; width: auto; height: auto; padding: 11px 12px; }
-      .brand { padding: 0 5px 10px; }
-      .sidebar .nav-label, .sidebar-foot { display: none; }
-      .nav-list { display: flex; overflow-x: auto; gap: 5px; padding-bottom: 2px; }
-      .nav-link { flex: 0 0 auto; min-height: 34px; gap: 7px; padding: 0 10px; font-size: 11px; }
-      .nav-icon { width: auto; }
-      .main { margin-left: 0; }
-      .topbar { height: 48px; padding-inline: 15px; }
-      .content { padding: 24px 15px 34px; }
-      .page-heading { align-items: flex-start; }
-      h1 { font-size: 26px; }
-      .metrics { gap: 9px; }
-      .metric { min-height: 106px; padding: 14px; }
-      .metric-value { margin-top: 13px; font-size: 25px; }
-      .panel-head, .panel-body { padding: 15px; }
-      .split { grid-template-columns: 1fr; }
-      .form-grid { grid-template-columns: 1fr; }
-      .date-label { display: none; }
-    }
-    @media (max-width: 390px) { .metrics { grid-template-columns: 1fr 1fr; } .panel-head { align-items: flex-start; } .toolbar { flex-wrap: wrap; justify-content: flex-end; } }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brightloop - Subscription Management</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app">
+
+  <!-- LOGIN PAGE -->
+  <section class="auth-page" id="auth-page">
+    <div class="auth-card">
+
+      <div class="auth-brand">
+        <h1>Brightloop</h1>
+        <p>Subscription Management System</p>
+      </div>
+
+      <!-- LOGIN PANEL -->
+      <div id="login-panel">
+        <h2>Welcome Back</h2>
+        <p class="subtitle">Choose your account type to continue</p>
+
+        <div class="login-options">
+          <button type="button"
+                  class="login-option active"
+                  id="admin-option"
+                  onclick="selectLoginRole('Admin', this)">
+            <span>🛡️</span>
+            <strong>Admin</strong>
+            <small>Manage the platform</small>
+          </button>
+
+          <button type="button"
+                  class="login-option"
+                  id="customer-option"
+                  onclick="selectLoginRole('Customer', this)">
+            <span>👤</span>
+            <strong>Customer</strong>
+            <small>Manage your subscriptions</small>
+          </button>
+        </div>
+
+        <form id="login-form">
+          <label for="login-email">Email Address</label>
+          <input type="email"
+                 id="login-email"
+                 placeholder="Enter your email"
+                 required>
+
+          <label for="login-password">Password</label>
+          <input type="password"
+                 id="login-password"
+                 placeholder="Enter your password"
+                 required>
+
+          <p id="login-error" class="auth-error"></p>
+
+          <button type="submit" class="auth-submit">
+            Login
+          </button>
+        </form>
+
+        <p id="customer-register-link" class="auth-switch">
+          New customer?
+          <a href="#" onclick="showAuthPanel('register'); return false;">
+            Create an account
+          </a>
+        </p>
+      </div>
+
+      <!-- REGISTER PANEL -->
+      <div id="register-panel" hidden>
+        <h2>Create Customer Account</h2>
+        <p class="subtitle">Register to manage your subscriptions</p>
+
+        <form id="register-form">
+          <label for="register-name">Full Name</label>
+          <input type="text"
+                 id="register-name"
+                 placeholder="Enter your name"
+                 required>
+
+          <label for="register-email">Email Address</label>
+          <input type="email"
+                 id="register-email"
+                 placeholder="Enter your email"
+                 required>
+
+          <label for="register-password">Password</label>
+          <input type="password"
+                 id="register-password"
+                 placeholder="Create a password"
+                 required>
+
+          <small class="password-help">
+            More than 8 characters, including uppercase,
+            lowercase and a special character.
+          </small>
+
+          <label for="register-confirm">Confirm Password</label>
+          <input type="password"
+                 id="register-confirm"
+                 placeholder="Confirm your password"
+                 required>
+
+          <p id="register-error" class="auth-error"></p>
+
+          <button type="submit" class="auth-submit">
+            Register
+          </button>
+        </form>
+
+        <p class="auth-switch">
+          Already registered?
+          <a href="#" onclick="showAuthPanel('login'); return false;">
+            Login
+          </a>
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- MAIN APPLICATION -->
+  <div class="app" id="main-app" hidden>
+
+    <!-- SIDEBAR -->
     <aside class="sidebar">
-      <div class="brand"><div class="brand-mark">L</div><div class="brand-name">Last Call</div></div>
-      <div class="nav-label">WORKSPACE</div>
-      <nav class="nav-list" aria-label="Workspace">
-        <a class="nav-link" href="#dashboard" data-view="dashboard"><span class="nav-icon">◫</span>Dashboard</a>
-        <a class="nav-link" href="#customers" data-view="customers"><span class="nav-icon">♙</span>Customers</a>
-        <a class="nav-link" href="#products" data-view="products"><span class="nav-icon">▧</span>Products</a>
-        <a class="nav-link" href="#plans" data-view="plans"><span class="nav-icon">◇</span>Plans</a>
-        <a class="nav-link" href="#subscriptions" data-view="subscriptions"><span class="nav-icon">↻</span>Subscriptions</a>
-        <div class="nav-label">BILLING</div>
-        <a class="nav-link" href="#quotations" data-view="quotations"><span class="nav-icon">▤</span>Quotations</a>
-        <a class="nav-link" href="#invoices" data-view="invoices"><span class="nav-icon">▣</span>Invoices</a>
-        <a class="nav-link" href="#discounts" data-view="discounts"><span class="nav-icon">％</span>Discounts</a>
-        <a class="nav-link" href="#payments" data-view="payments"><span class="nav-icon">⇄</span>Payments</a>
-        <div class="nav-label">ANALYTICS</div>
-        <a class="nav-link" href="#reports" data-view="reports"><span class="nav-icon">▥</span>Reports</a>
-        <a class="nav-link" href="#customer-portal" data-view="customer-portal"><span class="nav-icon">◎</span>Customer Portal</a>
-      </nav>
-      <div class="sidebar-foot">
-        <div class="local-note">Your workspace is saved privately in this browser.</div>
-        <div class="sidebar-user"><div class="avatar" id="avatar">LC</div><div><div class="user-name" id="user-name">Local workspace</div><div class="user-caption">Subscription manager</div></div></div>
+      <div class="sidebar-brand">
+        <h2>Brightloop</h2>
+        <span>Subscription System</span>
+      </div>
+
+      <nav id="navigation"></nav>
+
+      <div class="sidebar-bottom">
+        <div id="logged-in-user"></div>
+        <button id="logout-btn" class="logout-btn">
+          Logout
+        </button>
       </div>
     </aside>
-    <main class="main">
-      <header class="topbar"><div class="crumb">Workspace <span aria-hidden="true"> / </span> <strong id="top-title">Dashboard</strong></div><div class="top-actions"><span class="date-label" id="today"></span><button class="button secondary" id="export-button" type="button" title="Download all records as JSON">↓ Export</button></div></header>
-      <section class="content" id="content" aria-live="polite"></section>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <header class="topbar">
+        <div>
+          <h2 id="page-heading">Dashboard</h2>
+          <p>Subscription Management System</p>
+        </div>
+      </header>
+
+      <section id="page-content"></section>
+
     </main>
   </div>
-  <div id="notice" class="notice" role="status" hidden></div>
-  <script>
-    (() => {
-      const modules = {
-        customers: { title: 'Customers', fields: ['name', 'email', 'company', 'phone'] },
-        products: { title: 'Products', fields: ['name', 'category', 'price'] },
-        plans: { title: 'Plans', fields: ['name', 'price', 'billing_cycle', 'description'] },
-        subscriptions: { title: 'Subscriptions', fields: ['customer', 'plan', 'start_date', 'renewal_date', 'amount', 'status'] },
-        quotations: { title: 'Quotations', fields: ['customer', 'quotation_date', 'amount', 'status'] },
-        invoices: { title: 'Invoices', fields: ['customer', 'invoice_date', 'due_date', 'amount', 'status'] },
-        discounts: { title: 'Discounts', fields: ['code', 'discount_type', 'value', 'start_date', 'end_date'] },
-        payments: { title: 'Payments', fields: ['invoice', 'method', 'amount', 'payment_date', 'status'] }
-      };
-      const storageKey = 'lastcall-workspace-v1';
-      const emptyData = () => Object.fromEntries(Object.keys(modules).map(key => [key, []]));
-      let data;
-      try {
-        const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
-        data = { ...emptyData(), ...(saved && typeof saved === 'object' ? saved : {}) };
-        for (const key of Object.keys(modules)) if (!Array.isArray(data[key])) data[key] = [];
-      } catch { data = emptyData(); }
-      let currentView = location.hash.slice(1) || 'dashboard';
-      let noticeTimer;
-      const content = document.getElementById('content');
-      const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-      const label = value => value.replaceAll('_', ' ').replace(/\b\w/g, char => char.toUpperCase());
-      const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value) || 0);
-      const save = () => localStorage.setItem(storageKey, JSON.stringify(data));
-      const notify = message => {
-        const box = document.getElementById('notice');
-        box.textContent = message;
-        box.hidden = false;
-        clearTimeout(noticeTimer);
-        noticeTimer = setTimeout(() => { box.hidden = true; }, 2600);
-      };
-      const recordRows = (key, fields, records, emptyText = 'No records yet. Add your first record above.') => {
-        if (!records.length) return `<tr><td class="empty" colspan="${fields.length + 2}">${escapeHtml(emptyText)}</td></tr>`;
-        return records.slice().reverse().map(record => `<tr><td>${record.id}</td>${fields.map(field => `<td>${field === 'status' ? `<span class="status ${String(record[field] || '').toLowerCase()}">${escapeHtml(record[field])}</span>` : escapeHtml(record[field])}</td>`).join('')}<td><button class="button danger" type="button" data-delete="${key}" data-id="${record.id}" aria-label="Delete record ${record.id}">Delete</button></td></tr>`).join('');
-      };
-      const renderTable = (key, records, fields) => `<div class="table-wrap"><table><thead><tr><th>ID</th>${fields.map(field => `<th>${label(field)}</th>`).join('')}<th>Action</th></tr></thead><tbody id="records-body">${recordRows(key, fields, records)}</tbody></table></div>`;
-      const fieldControl = field => {
-        const title = label(field);
-        if (field.includes('date')) return `<div class="field"><label for="field-${field}">${title}</label><input id="field-${field}" name="${field}" type="date" required></div>`;
-        if (field === 'status') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select status</option>${['Active', 'Pending', 'Paid', 'Unpaid', 'Cancelled'].map(value => `<option>${value}</option>`).join('')}</select></div>`;
-        if (field === 'billing_cycle') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select cycle</option>${['Monthly', 'Quarterly', 'Yearly'].map(value => `<option>${value}</option>`).join('')}</select></div>`;
-        if (field === 'discount_type') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select type</option><option>Percentage</option><option>Fixed amount</option></select></div>`;
-        if (field === 'method') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select method</option><option>Card</option><option>Bank transfer</option><option>Cash</option><option>UPI</option><option>Other</option></select></div>`;
-        if (['amount', 'price', 'value'].includes(field)) return `<div class="field"><label for="field-${field}">${title}${field !== 'value' || document.querySelector('[name="discount_type"]')?.value !== 'Percentage' ? ' (₹)' : ' (%)'}</label><input id="field-${field}" name="${field}" type="number" min="0" step="0.01" placeholder="0.00" required></div>`;
-        return `<div class="field"><label for="field-${field}">${title}</label><input id="field-${field}" name="${field}" type="text" placeholder="Enter ${title.toLowerCase()}" required></div>`;
-      };
-      const heading = (eyebrow, title, subtitle, action = '') => `<div class="page-heading"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p class="subtitle">${subtitle}</p></div>${action}</div>`;
-      const metric = (name, value, mark, tint) => `<div class="metric" style="--metric-tint:${tint}"><div class="metric-label">${name}</div><div class="metric-mark">${mark}</div><div class="metric-value">${value}</div></div>`;
-      const simpleTable = (title, key, fields, records, emptyText) => `<section class="panel"><div class="panel-head"><h2>${title}</h2></div><div class="table-wrap"><table><thead><tr>${fields.map(field => `<th>${label(field)}</th>`).join('')}</tr></thead><tbody>${records.length ? records.slice().reverse().slice(0, 8).map(record => `<tr>${fields.map(field => `<td>${field === 'amount' ? money(record[field]) : field === 'status' ? `<span class="status ${String(record[field] || '').toLowerCase()}">${escapeHtml(record[field])}</span>` : escapeHtml(record[field])}</td>`).join('')}</tr>`).join('') : `<tr><td class="empty" colspan="${fields.length}">${emptyText}</td></tr>`}</tbody></table></div></section>`;
-      function renderDashboard() {
-        const count = key => data[key].length;
-        const recent = data.subscriptions.slice(-5).reverse();
-        content.innerHTML = `${heading('OVERVIEW', 'Dashboard', 'A clear view of your subscription business today.')}
-          <div class="metrics">${metric('Customers', count('customers'), '♙', '#e3f0e6')}${metric('Products', count('products'), '▧', '#e2eff4')}${metric('Plans', count('plans'), '◇', '#f7ecdb')}${metric('Subscriptions', count('subscriptions'), '↻', '#f7e6df')}${metric('Invoices', count('invoices'), '▣', '#e7edf7')}${metric('Payments', count('payments'), '⇄', '#e9f1dc')}</div>
-          ${simpleTable('Recent subscriptions', 'subscriptions', ['customer', 'plan', 'renewal_date', 'amount', 'status'], recent, 'No subscriptions recorded yet.')}`;
-      }
-      function renderModule(key) {
-        const module = modules[key];
-        const fields = module.fields;
-        content.innerHTML = `${heading('WORKSPACE / RECORDS', module.title, `Add and manage your ${module.title.toLowerCase()}.`)}
-          <section class="panel"><div class="panel-head"><h2>Add new ${module.title.toLowerCase().replace(/s$/, '')}</h2></div><div class="panel-body"><form id="record-form" class="form-grid">${fields.map(fieldControl).join('')}<div class="form-actions"><button class="button" type="submit">＋ Save record</button></div></form></div></section>
-          <section class="panel"><div class="panel-head"><h2>${module.title} list <span class="crumb">(${data[key].length})</span></h2><div class="toolbar"><input class="search" id="search" type="search" placeholder="Search ${module.title.toLowerCase()}" aria-label="Search ${module.title.toLowerCase()}"></div></div>${renderTable(key, data[key], fields)}</section>`;
-        document.getElementById('record-form').addEventListener('submit', event => {
-          event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          const record = Object.fromEntries(fields.map(field => [field, String(form.get(field) || '').trim()]));
-          record.id = data[key].reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
-          data[key].push(record);
-          save(); render(); notify(`${module.title.slice(0, -1)} saved.`);
-        });
-        document.getElementById('search').addEventListener('input', event => {
-          const query = event.target.value.toLowerCase();
-          const results = data[key].filter(record => fields.some(field => String(record[field] || '').toLowerCase().includes(query)));
-          document.getElementById('records-body').innerHTML = recordRows(key, fields, results, 'No matching records.');
-        });
-      }
-      function renderReports() {
-        const counts = Object.keys(modules).map(key => metric(modules[key].title, data[key].length, '↗', '#e7f0e8')).join('');
-        const total = data.payments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-        content.innerHTML = `${heading('ANALYTICS', 'Reports & analytics', 'A summary of activity across your subscription workspace.')}
-          <div class="metrics">${counts}</div><div class="split"><section class="panel"><div class="panel-head"><h2>Payment summary</h2></div><div class="panel-body"><div class="summary-total">${money(total)}</div><div class="muted-small">Total recorded payments</div></div></section><section class="panel"><div class="panel-head"><h2>Workspace data</h2></div><div class="panel-body"><p class="subtitle">All records are stored in this browser.</p><button class="button secondary" type="button" id="download-report">↓ Export records</button></div></section></div>`;
-        document.getElementById('download-report').addEventListener('click', exportData);
-      }
-      function renderPortal() {
-        const tables = [
-          ['Customers', 'customers', ['name', 'email', 'company']],
-          ['Subscriptions', 'subscriptions', ['customer', 'plan', 'renewal_date', 'amount', 'status']],
-          ['Invoices', 'invoices', ['customer', 'invoice_date', 'due_date', 'amount', 'status']]
-        ];
-        content.innerHTML = `${heading('WORKSPACE / CUSTOMER VIEW', 'Customer portal', 'Customer account, subscription, and invoice overview.')}${tables.map(([title, key, fields]) => simpleTable(title, key, fields, data[key], `No ${title.toLowerCase()} available.`)).join('')}`;
-      }
-      function render() {
-        const valid = ['dashboard', ...Object.keys(modules), 'reports', 'customer-portal'];
-        if (!valid.includes(currentView)) currentView = 'dashboard';
-        document.querySelectorAll('[data-view]').forEach(link => link.classList.toggle('active', link.dataset.view === currentView));
-        const title = modules[currentView]?.title || ({ dashboard: 'Dashboard', reports: 'Reports', 'customer-portal': 'Customer Portal' }[currentView]);
-        document.getElementById('top-title').textContent = title;
-        if (currentView === 'dashboard') renderDashboard();
-        else if (modules[currentView]) renderModule(currentView);
-        else if (currentView === 'reports') renderReports();
-        else renderPortal();
-      }
-      function exportData() {
-        const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ...data }, null, 2)], { type: 'application/json' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'last-call-export.json';
-        link.click();
-        URL.revokeObjectURL(link.href);
-        notify('Workspace export downloaded.');
-      }
-      document.querySelector('.nav-list').addEventListener('click', event => {
-        const link = event.target.closest('[data-view]');
-        if (!link) return;
-        currentView = link.dataset.view;
-        if (location.hash !== `#${currentView}`) location.hash = currentView;
-        render();
-      });
-      window.addEventListener('hashchange', () => { currentView = location.hash.slice(1) || 'dashboard'; render(); });
-      content.addEventListener('click', event => {
-        const button = event.target.closest('[data-delete]');
-        if (!button) return;
-        if (!confirm('Delete this record? This cannot be undone.')) return;
-        const key = button.dataset.delete;
-        data[key] = data[key].filter(record => String(record.id) !== button.dataset.id);
-        save(); render(); notify('Record deleted.');
-      });
-      document.getElementById('export-button').addEventListener('click', exportData);
-      document.getElementById('today').textContent = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date());
-      document.getElementById('user-name').textContent = localStorage.getItem('lastcall-user-name') || 'Local workspace';
-      document.getElementById('avatar').textContent = (document.getElementById('user-name').textContent.match(/\b\w/g) || ['L', 'C']).slice(0, 2).join('').toUpperCase();
-      render();
-    })();
-  </script>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Details</h2>
+        <button id="modal-close" type="button">×</button>
+      </div>
+
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast"></div>
+
+  <script src="script.js"></script>
 </body>
 </html>
