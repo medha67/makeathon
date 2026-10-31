@@ -34,8 +34,10 @@
     .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--lime); color: var(--forest); font-size: 19px; font-weight: 900; }
     .brand-name { font-family: Georgia, serif; font-size: 21px; letter-spacing: .1px; }
     .nav-label { padding: 12px 12px 7px; color: #9ab0a6; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
+    .customer-role .nav-label { display: none; }
     .nav-list { display: grid; gap: 3px; }
     .nav-link { display: flex; align-items: center; gap: 12px; min-height: 41px; padding: 0 12px; color: #ccdad2; text-decoration: none; border-radius: 7px; font-size: 13px; transition: background .16s, color .16s; }
+    .nav-link[hidden] { display: none; }
     .nav-link:hover, .nav-link.active { color: #fff; background: #2a5147; }
     .nav-link.active { box-shadow: inset 3px 0 var(--lime); }
     .nav-icon { width: 18px; text-align: center; font-size: 15px; opacity: .9; }
@@ -58,6 +60,7 @@
     .subtitle { margin-bottom: 0; color: var(--muted); font-size: 13px; }
     h2 { margin-bottom: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
     .button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 0; border-radius: 6px; color: #fff; background: var(--forest); font-size: 12px; font-weight: 650; transition: background .15s, transform .15s; }
+    .button[hidden] { display: none; }
     .button:hover { background: var(--forest-soft); transform: translateY(-1px); }
     .button.secondary { color: var(--forest); background: #eaf0e9; }
     .button.secondary:hover { background: #dce8df; }
@@ -129,9 +132,46 @@
     .muted-small { margin-top: 5px; color: var(--muted); font-size: 11px; }
     .notice { position: fixed; z-index: 20; right: 22px; bottom: 20px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; border-radius: 6px; color: #fff; background: var(--forest); box-shadow: 0 8px 24px #172a2633; font-size: 12px; animation: enter .2s ease-out; }
     @keyframes enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    .app[hidden], .auth-screen[hidden] { display: none; }
+    .auth-screen { min-height: 100vh; display: grid; grid-template-columns: minmax(280px, 1fr) minmax(360px, 500px); align-items: center; gap: clamp(35px, 8vw, 120px); padding: 48px max(7vw, 24px); background: radial-gradient(circle at 15% 15%, #e8f0e2 0, transparent 38%), var(--canvas); }
+    .auth-intro { max-width: 470px; }
+    .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; }
+    .auth-brand .brand-mark { width: 42px; height: 42px; }
+    .auth-intro h1 { max-width: 440px; font-size: clamp(34px, 4vw, 52px); line-height: 1.12; }
+    .auth-intro .subtitle { max-width: 390px; line-height: 1.7; }
+    .auth-points { display: grid; gap: 14px; margin-top: 32px; color: #53665d; font-size: 13px; }
+    .auth-point { display: flex; align-items: center; gap: 10px; }
+    .auth-point span { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; color: var(--forest); background: #e3eedb; }
+    .auth-card { width: 100%; padding: 34px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 20px 60px rgba(27, 49, 42, .09); }
+    .auth-card h2 { margin-bottom: 8px; font-size: 25px; }
+    .auth-card > .subtitle { margin-bottom: 23px; line-height: 1.5; }
+    .auth-mode, .role-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 4px; border-radius: 7px; background: #f1f4f1; }
+    .auth-mode { margin-bottom: 21px; }
+    .auth-mode button, .role-switch button { min-height: 35px; border: 0; border-radius: 5px; color: #66746d; background: transparent; font-size: 12px; font-weight: 650; }
+    .auth-mode button[aria-pressed="true"], .role-switch button[aria-pressed="true"] { color: var(--forest); background: #fff; box-shadow: 0 1px 4px #183c3418; }
+    .role-label { margin-bottom: 8px; color: #586760; font-size: 11px; font-weight: 650; }
+    .role-switch { margin-bottom: 19px; }
+    .auth-fields { display: grid; gap: 14px; }
+    .auth-fields .field input { min-height: 43px; }
+    .auth-submit, .google-button { width: 100%; min-height: 43px; }
+    .auth-submit { margin-top: 20px; }
+    .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: #909b95; font-size: 10px; }
+    .auth-divider::before, .auth-divider::after { height: 1px; flex: 1; content: ""; background: var(--line); }
+    .google-button { border: 1px solid #dfe6e0; color: #3d4943; background: #fff; }
+    .google-button:hover { background: #f8faf8; }
+    .google-g { color: #4285f4; font-size: 16px; font-weight: 800; }
+    .auth-footnote { margin: 17px 0 0; color: #84908a; text-align: center; font-size: 10px; line-height: 1.5; }
+    .auth-error { min-height: 0; margin-top: 12px; color: #a64e3c; font-size: 12px; line-height: 1.4; }
+    .auth-error:empty { display: none; }
     .mobile-bar { display: none; }
     @media (max-width: 1050px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .content { padding-inline: 23px; } .topbar { padding-inline: 23px; } }
     @media (max-width: 700px) {
+      .auth-screen { grid-template-columns: 1fr; gap: 25px; padding: 25px 16px; }
+      .auth-intro { max-width: 500px; margin: 0 auto; text-align: center; }
+      .auth-brand { justify-content: center; margin-bottom: 20px; }
+      .auth-intro h1 { margin-inline: auto; font-size: 30px; }
+      .auth-intro > .subtitle, .auth-points { display: none; }
+      .auth-card { max-width: 500px; margin: 0 auto; padding: 25px 21px; }
       .sidebar { position: static; width: auto; height: auto; padding: 11px 12px; }
       .brand { padding: 0 5px 10px; }
       .sidebar .nav-label, .sidebar-foot { display: none; }
@@ -155,7 +195,39 @@
   </style>
 </head>
 <body>
-  <div class="app">
+  <main class="auth-screen" id="auth-screen">
+    <section class="auth-intro">
+      <div class="auth-brand"><div class="brand-mark">L</div><div class="brand-name">Last Call</div></div>
+      <div class="eyebrow">SUBSCRIPTION WORKSPACE</div>
+      <h1>Everything you need to keep customers close.</h1>
+      <p class="subtitle">Manage plans, subscriptions, and billing from one thoughtfully organized workspace.</p>
+      <div class="auth-points"><div class="auth-point"><span>✓</span> Keep subscription records organized</div><div class="auth-point"><span>✓</span> Follow invoices and payments</div><div class="auth-point"><span>✓</span> Give customers a dedicated portal</div></div>
+    </section>
+    <section class="auth-card" aria-labelledby="auth-title">
+      <h2 id="auth-title">Welcome back</h2>
+      <p class="subtitle" id="auth-subtitle">Sign in to continue to your workspace.</p>
+      <div class="auth-mode" role="group" aria-label="Account action">
+        <button type="button" data-auth-mode="login" aria-pressed="true">Log in</button>
+        <button type="button" data-auth-mode="signup" aria-pressed="false">Sign up</button>
+      </div>
+      <div class="role-label">I am signing in as</div>
+      <div class="role-switch" role="group" aria-label="Account type">
+        <button type="button" data-role="employee" aria-pressed="true">Employee</button>
+        <button type="button" data-role="customer" aria-pressed="false">Customer</button>
+      </div>
+      <form id="auth-form">
+        <div class="auth-fields" id="auth-fields"></div>
+        <button class="button auth-submit" id="auth-submit" type="submit">Log in</button>
+      </form>
+      <div id="signup-options" hidden>
+        <div class="auth-divider">OR CONTINUE WITH</div>
+        <button class="button google-button" id="google-signup" type="button"><span class="google-g">G</span> Sign up with Google</button>
+      </div>
+      <p class="auth-error" id="auth-error" role="alert"></p>
+      <p class="auth-footnote">Demo only: this does not use a secure authentication server. Google sign-up requires OAuth setup.</p>
+    </section>
+  </main>
+  <div class="app" id="app" hidden>
     <aside class="sidebar">
       <div class="brand"><div class="brand-mark">L</div><div class="brand-name">Last Call</div></div>
       <div class="nav-label">WORKSPACE</div>
@@ -175,18 +247,40 @@
         <a class="nav-link" href="#customer-portal" data-view="customer-portal"><span class="nav-icon">◎</span>Customer Portal</a>
       </nav>
       <div class="sidebar-foot">
-        <div class="local-note">Your workspace is saved privately in this browser.</div>
-        <div class="sidebar-user"><div class="avatar" id="avatar">LC</div><div><div class="user-name" id="user-name">Local workspace</div><div class="user-caption">Subscription manager</div></div></div>
+        <div class="local-note">Demo data is saved in this browser.</div>
+        <div class="sidebar-user"><div class="avatar" id="avatar">LC</div><div><div class="user-name" id="user-name">Local workspace</div><div class="user-caption" id="user-caption">Subscription manager</div></div></div>
       </div>
     </aside>
     <main class="main">
-      <header class="topbar"><div class="crumb">Workspace <span aria-hidden="true"> / </span> <strong id="top-title">Dashboard</strong></div><div class="top-actions"><span class="date-label" id="today"></span><button class="button secondary" id="export-button" type="button" title="Download all records as JSON">↓ Export</button></div></header>
+      <header class="topbar"><div class="crumb">Workspace <span aria-hidden="true"> / </span> <strong id="top-title">Dashboard</strong></div><div class="top-actions"><span class="date-label" id="today"></span><button class="button secondary" id="export-button" type="button" title="Download all records as JSON">↓ Export</button><button class="button secondary" id="logout-button" type="button">Log out</button></div></header>
       <section class="content" id="content" aria-live="polite"></section>
     </main>
   </div>
   <div id="notice" class="notice" role="status" hidden></div>
   <script>
     (() => {
+      const accountsKey = 'lastcall-accounts-v1';
+      const sessionKey = 'lastcall-session-v1';
+      const authScreen = document.getElementById('auth-screen');
+      const app = document.getElementById('app');
+      const authForm = document.getElementById('auth-form');
+      const authFields = document.getElementById('auth-fields');
+      const authError = document.getElementById('auth-error');
+      let authMode = 'login';
+      let selectedRole = 'employee';
+      let currentUser = null;
+      let accounts = [];
+      try {
+        const savedAccounts = JSON.parse(localStorage.getItem(accountsKey) || '[]');
+        if (!Array.isArray(savedAccounts)) throw new Error('Saved account data is invalid.');
+        accounts = savedAccounts;
+        const savedSession = JSON.parse(sessionStorage.getItem(sessionKey) || 'null');
+        if (savedSession && ['employee', 'customer'].includes(savedSession.role) && typeof savedSession.email === 'string') {
+          currentUser = savedSession;
+        }
+      } catch {
+        authError.textContent = 'Could not read saved account data. Clear this site’s browser storage and try again.';
+      }
       const modules = {
         customers: { title: 'Customers', fields: ['name', 'email', 'company', 'phone', 'address', 'gstin'] },
         products: { title: 'Products', fields: ['name', 'category', 'price'] },
@@ -213,6 +307,89 @@
       const label = value => value.replaceAll('_', ' ').replace(/\b\w/g, char => char.toUpperCase());
       const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value) || 0);
       const save = () => localStorage.setItem(storageKey, JSON.stringify(data));
+      const bytesToBase64 = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+      async function hashPassword(password, salt) {
+        const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+        const result = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 120000, hash: 'SHA-256' }, key, 256);
+        return bytesToBase64(result);
+      }
+      function setAuthMode(mode) {
+        authMode = mode;
+        authError.textContent = '';
+        document.querySelectorAll('[data-auth-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.authMode === mode)));
+        const signingUp = mode === 'signup';
+        document.querySelector('.role-label').textContent = signingUp ? 'I am creating an account as' : 'I am signing in as';
+        document.getElementById('auth-title').textContent = signingUp ? 'Create your account' : 'Welcome back';
+        document.getElementById('auth-subtitle').textContent = signingUp ? 'Set up your account to get started.' : 'Sign in to continue to your workspace.';
+        document.getElementById('auth-submit').textContent = signingUp ? 'Create account' : 'Log in';
+        document.getElementById('signup-options').hidden = !signingUp;
+        authFields.innerHTML = signingUp
+          ? `<div class="field"><label for="auth-name">Full name</label><input id="auth-name" name="name" type="text" autocomplete="name" required></div>
+             <div class="field"><label for="auth-email">Email</label><input id="auth-email" name="email" type="email" autocomplete="email" required></div>
+             <div class="field"><label for="auth-userid">User ID</label><input id="auth-userid" name="userId" type="text" autocomplete="username" required></div>
+             <div class="field"><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" minlength="8" autocomplete="new-password" required></div>
+             <div class="field"><label for="auth-confirm-password">Confirm password</label><input id="auth-confirm-password" name="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></div>`
+          : `<div class="field"><label for="auth-identity">Email or user ID</label><input id="auth-identity" name="identity" type="text" autocomplete="username" required></div>
+             <div class="field"><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="current-password" required></div>`;
+      }
+      function completeLogin(user) {
+        currentUser = user;
+        sessionStorage.setItem(sessionKey, JSON.stringify(user));
+        authScreen.hidden = true;
+        app.hidden = false;
+        app.classList.toggle('customer-role', user.role === 'customer');
+        document.getElementById('user-name').textContent = user.name;
+        document.getElementById('user-caption').textContent = user.role === 'employee' ? 'Employee workspace' : 'Customer account';
+        document.getElementById('avatar').textContent = (user.name.match(/\b\w/g) || ['L', 'C']).slice(0, 2).join('').toUpperCase();
+        document.getElementById('export-button').hidden = user.role !== 'employee';
+        document.querySelectorAll('[data-view]').forEach(link => {
+          link.hidden = user.role === 'customer' && link.dataset.view !== 'customer-portal';
+        });
+        currentView = user.role === 'customer' ? 'customer-portal' : 'dashboard';
+        if (location.hash !== `#${currentView}`) location.hash = currentView;
+        render();
+      }
+      document.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => setAuthMode(button.dataset.authMode)));
+      document.querySelectorAll('[data-role]').forEach(button => button.addEventListener('click', () => {
+        selectedRole = button.dataset.role;
+        document.querySelectorAll('[data-role]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+      }));
+      authForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        authError.textContent = '';
+        const form = new FormData(authForm);
+        const password = String(form.get('password') || '');
+        try {
+          if (authMode === 'signup') {
+            const name = String(form.get('name') || '').trim();
+            const email = String(form.get('email') || '').trim().toLowerCase();
+            const userId = String(form.get('userId') || '').trim();
+            if (password.length < 8) throw new Error('Use a password with at least 8 characters.');
+            if (password !== form.get('confirmPassword')) throw new Error('The passwords do not match.');
+            if (accounts.some(account => account.email.toLowerCase() === email || account.userId.toLowerCase() === userId.toLowerCase())) {
+              throw new Error('That email or user ID is already registered.');
+            }
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const account = { name, email, userId, role: selectedRole, salt: bytesToBase64(salt), passwordHash: await hashPassword(password, salt) };
+            accounts.push(account);
+            localStorage.setItem(accountsKey, JSON.stringify(accounts));
+            completeLogin({ name, email, role: selectedRole });
+            notify('Your account is ready.');
+            return;
+          }
+          const identity = String(form.get('identity') || '').trim().toLowerCase();
+          const account = accounts.find(item => (item.email.toLowerCase() === identity || item.userId.toLowerCase() === identity) && item.role === selectedRole);
+          if (!account || await hashPassword(password, Uint8Array.from(atob(account.salt), character => character.charCodeAt(0))) !== account.passwordHash) {
+            throw new Error('Email/user ID, password, or account type is incorrect.');
+          }
+          completeLogin({ name: account.name, email: account.email, role: account.role });
+        } catch (error) {
+          authError.textContent = error instanceof Error ? error.message : 'Sign-in failed. Please try again.';
+        }
+      });
+      document.getElementById('google-signup').addEventListener('click', () => {
+        authError.textContent = 'Google sign-up is a demo placeholder. Real Google authentication requires OAuth credentials and a backend.';
+      });
       const notify = message => {
         const box = document.getElementById('notice');
         box.textContent = message;
@@ -441,10 +618,23 @@
           ['Subscriptions', 'subscriptions', ['customer', 'plan', 'renewal_date', 'amount', 'status']],
           ['Invoices', 'invoices', ['customer', 'invoice_date', 'due_date', 'amount', 'status']]
         ];
-        content.innerHTML = `${heading('WORKSPACE / CUSTOMER VIEW', 'Customer portal', 'Customer account, subscription, and invoice overview.')}${tables.map(([title, key, fields]) => simpleTable(title, key, fields, data[key], `No ${title.toLowerCase()} available.`)).join('')}`;
+        const matchesCustomer = record => {
+          const value = String(record.customer || record.email || record.name || '').trim().toLowerCase();
+          return value === currentUser.email.toLowerCase() || value === currentUser.name.trim().toLowerCase();
+        };
+        content.innerHTML = `${heading('WORKSPACE / CUSTOMER VIEW', 'Customer portal', 'Customer account, subscription, and invoice overview.')}${tables.map(([title, key, fields]) => {
+          const records = currentUser.role === 'employee'
+            ? data[key]
+            : data[key].filter(key === 'customers'
+              ? record => String(record.email || '').toLowerCase() === currentUser.email.toLowerCase() || String(record.name || '').toLowerCase() === currentUser.name.toLowerCase()
+              : matchesCustomer);
+          return simpleTable(title, key, fields, records, `No ${title.toLowerCase()} available.`);
+        }).join('')}`;
       }
       function render() {
+        if (!currentUser) return;
         const valid = ['dashboard', ...Object.keys(modules), 'reports', 'customer-portal'];
+        if (currentUser.role === 'customer') currentView = 'customer-portal';
         if (!valid.includes(currentView)) currentView = 'dashboard';
         document.querySelectorAll('[data-view]').forEach(link => link.classList.toggle('active', link.dataset.view === currentView));
         const title = modules[currentView]?.title || ({ dashboard: 'Dashboard', reports: 'Reports', 'customer-portal': 'Customer Portal' }[currentView]);
@@ -466,12 +656,15 @@
       }
       document.querySelector('.nav-list').addEventListener('click', event => {
         const link = event.target.closest('[data-view]');
-        if (!link) return;
+        if (!link || !currentUser || currentUser.role !== 'employee') return;
         currentView = link.dataset.view;
         if (location.hash !== `#${currentView}`) location.hash = currentView;
         render();
       });
-      window.addEventListener('hashchange', () => { currentView = location.hash.slice(1) || 'dashboard'; render(); });
+      window.addEventListener('hashchange', () => {
+        currentView = currentUser?.role === 'customer' ? 'customer-portal' : (location.hash.slice(1) || 'dashboard');
+        render();
+      });
       content.addEventListener('click', event => {
         const printButton = event.target.closest('[data-print-invoice]');
         if (printButton) {
@@ -487,10 +680,18 @@
         save(); render(); notify('Record deleted.');
       });
       document.getElementById('export-button').addEventListener('click', exportData);
+      document.getElementById('logout-button').addEventListener('click', () => {
+        sessionStorage.removeItem(sessionKey);
+        currentUser = null;
+        app.hidden = true;
+        authScreen.hidden = false;
+        setAuthMode('login');
+        authError.textContent = '';
+        location.hash = '';
+      });
       document.getElementById('today').textContent = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date());
-      document.getElementById('user-name').textContent = localStorage.getItem('lastcall-user-name') || 'Local workspace';
-      document.getElementById('avatar').textContent = (document.getElementById('user-name').textContent.match(/\b\w/g) || ['L', 'C']).slice(0, 2).join('').toUpperCase();
-      render();
+      setAuthMode('login');
+      if (currentUser) completeLogin(currentUser);
     })();
   </script>
 </body>
