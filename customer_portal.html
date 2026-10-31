@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Portal - Last Call{% endblock %}
+
+{% block content %}
+
+<h1>Customer Portal</h1>
+
+<p class="subtitle">
+    Customer account and subscription overview.
+</p>
+
+<div class="section-box">
+
+    <h2>Customers</h2>
+
+    <table>
+
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Company</th>
+        </tr>
+
+        {% for customer in customers %}
+
+        <tr>
+
+            <td>{{ customer.name }}</td>
+
+            <td>{{ customer.email }}</td>
+
+            <td>{{ customer.company }}</td>
+
+        </tr>
+
+        {% else %}
+
+        <tr>
+            <td colspan="3">No customers available.</td>
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
+
+
+<div class="section-box">
+
+    <h2>Subscriptions</h2>
+
+    <table>
+
+        <tr>
+            <th>Customer</th>
+            <th>Plan</th>
+            <th>Renewal Date</th>
+            <th>Amount</th>
+            <th>Status</th>
+        </tr>
+
+        {% for item in subscriptions %}
+
+        <tr>
+
+            <td>{{ item.customer }}</td>
+
+            <td>{{ item.plan }}</td>
+
+            <td>{{ item.renewal_date }}</td>
+
+            <td>₹{{ item.amount }}</td>
+
+            <td>{{ item.status }}</td>
+
+        </tr>
+
+        {% else %}
+
+        <tr>
+            <td colspan="5">No subscriptions available.</td>
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
+
+
+<div class="section-box">
+
+    <h2>Invoices</h2>
+
+    <table>
+
+        <tr>
+            <th>Customer</th>
+            <th>Invoice Date</th>
+            <th>Due Date</th>
+            <th>Amount</th>
+            <th>Status</th>
+        </tr>
+
+        {% for invoice in invoices %}
+
+        <tr>
+
+            <td>{{ invoice.customer }}</td>
+
+            <td>{{ invoice.invoice_date }}</td>
+
+            <td>{{ invoice.due_date }}</td>
+
+            <td>₹{{ invoice.amount }}</td>
+
+            <td>{{ invoice.status }}</td>
+
+        </tr>
+
+        {% else %}
+
+        <tr>
+            <td colspan="5">No invoices available.</td>
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
+
+{% endblock %}

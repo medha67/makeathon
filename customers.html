@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Last Call{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <div>
+
+        <h1>{{ title }}</h1>
+
+        <p class="subtitle">
+            Add and manage {{ title|lower }}.
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- Add Record Form -->
+
+<div class="section-box">
+
+    <h2>Add New {{ title }}</h2>
+
+    <form method="POST" class="record-form">
+
+        {% for field in fields %}
+
+        <div class="form-group">
+
+            <label>{{ field.replace('_', ' ')|title }}</label>
+
+            {% if 'date' in field %}
+
+                <input type="date"
+                       name="{{ field }}"
+                       required>
+
+            {% elif field == 'status' %}
+
+                <select name="{{ field }}" required>
+
+                    <option value="">Select status</option>
+
+                    <option value="Active">Active</option>
+
+                    <option value="Pending">Pending</option>
+
+                    <option value="Paid">Paid</option>
+
+                    <option value="Unpaid">Unpaid</option>
+
+                    <option value="Cancelled">Cancelled</option>
+
+                </select>
+
+            {% elif field == 'billing_cycle' %}
+
+                <select name="{{ field }}" required>
+
+                    <option value="">Select cycle</option>
+
+                    <option value="Monthly">Monthly</option>
+
+                    <option value="Quarterly">Quarterly</option>
+
+                    <option value="Yearly">Yearly</option>
+
+                </select>
+
+            {% else %}
+
+                <input type="text"
+                       name="{{ field }}"
+                       placeholder="Enter {{ field.replace('_', ' ') }}"
+                       required>
+
+            {% endif %}
+
+        </div>
+
+        {% endfor %}
+
+        <button type="submit">Save Record</button>
+
+    </form>
+
+</div>
+
+
+<!-- Display Records -->
+
+<div class="section-box">
+
+    <div class="table-heading">
+
+        <h2>{{ title }} List</h2>
+
+        <input type="text"
+               id="searchInput"
+               placeholder="Search..."
+               onkeyup="searchTable()">
+
+    </div>
+
+    <table id="recordTable">
+
+        <thead>
+
+            <tr>
+
+                <th>ID</th>
+
+                {% for field in fields %}
+
+                    <th>{{ field.replace('_', ' ')|title }}</th>
+
+                {% endfor %}
+
+                <th>Action</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for record in records %}
+
+            <tr>
+
+                <td>{{ record.id }}</td>
+
+                {% for field in fields %}
+
+                    <td>{{ record[field] }}</td>
+
+                {% endfor %}
+
+                <td>
+
+                    <form method="POST"
+                          action="{{ url_for('delete_record', page=page, record_id=record.id) }}"
+                          onsubmit="return confirm('Delete this record?')">
+
+                        <button type="submit" class="delete-button">
+                            Delete
+                        </button>
+
+                    </form>
+
+                </td>
+
+            </tr>
+
+            {% else %}
+
+            <tr>
+
+                <td colspan="{{ fields|length + 2 }}">
+                    No records found.
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Last Call{% endblock %}
+
+{% block content %}
+
+<h1>Reports & Analytics</h1>
+
+<p class="subtitle">
+    View a summary of your subscription management system.
+</p>
+
+<div class="card-container">
+
+    {% for name, value in counts.items() %}
+
+    <div class="card">
+
+        <h3>{{ name|title }}</h3>
+
+        <h1>{{ value }}</h1>
+
+        <p>Total Records</p>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+<div class="section-box">
+
+    <h2>Payment Summary</h2>
+
+    <h1>₹{{ "%.2f"|format(total_payments) }}</h1>
+
+    <p>Total recorded payments</p>
+
+</div>
+
+{% endblock %}
