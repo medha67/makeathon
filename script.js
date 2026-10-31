@@ -18,6 +18,8 @@ const store = {
 
 let subs = store.load('lc_subs');
 let usage = store.load('lc_usage');
+let invoices = store.load('lc_inv');
+let invNo = Number(localStorage.getItem('lc_invno')) || 0;
 let threshold = Number(localStorage.getItem('lc_threshold')) || 150;
 
 const $ = id => document.getElementById(id);
@@ -28,7 +30,7 @@ const daysUntil = d => Math.round((new Date(d + 'T00:00:00') - new Date(today() 
 const monthly = s => s.cycle === 'yearly' ? s.price / 12 : s.price;
 const subById = id => subs.find(s => s.id === id);
 const last30 = () => usage.filter(u => daysUntil(u.date) >= -30 && daysUntil(u.date) <= 0);
-const saveAll = () => { store.save('lc_subs', subs); store.save('lc_usage', usage); };
+const saveAll = () => { store.save('lc_subs', subs); store.save('lc_usage', usage); store.save('lc_inv', invoices); };
 const emptyRow = msg => `<li class="empty">${msg}</li>`;
 
 /* ---------- Tabs ---------- */
@@ -53,16 +55,19 @@ $('presets').addEventListener('click', e => {
 
 $('subForm').addEventListener('submit', e => {
   e.preventDefault();
-  subs.push({
+  const sub = {
     id: Date.now(),
     name: $('subName').value.trim(),
     price: Number($('subPrice').value),
     cycle: $('subCycle').value,
     nextDate: $('subDate').value,
     url: $('subUrl').value.trim()
-  });
+  };
+  subs.push(sub);
+  const inv = ensureInvoice(sub); // invoice is created automatically
   saveAll();
   e.target.reset();
+  $('subMsg').textContent = inv ? `Saved. Invoice ${inv.no} created for ${money(inv.amount)}, due ${inv.due}.` : 'Saved.';
   render();
 });
 
@@ -82,6 +87,7 @@ $('subList').addEventListener('click', e => {
   if (!id) return;
   subs = subs.filter(s => s.id !== id);
   usage = usage.filter(u => u.subId !== id);
+  invoices = invoices.filter(i => i.subId !== id || i.status === 'Paid'); // keep paid history
   saveAll(); render();
 });
 
@@ -176,8 +182,90 @@ function renderDashboard() {
   }).join('') : emptyRow('Add subscriptions and log usage to see verdicts.');
 }
 
-function render() { renderSubs(); renderUsage(); renderDashboard(); }
+/* ---------- Invoices (automatic) ---------- */
+function addCycle(dateStr, cycle) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const day = d.getUTCDate();
+  if (cycle === 'yearly') d.setUTCFullYear(d.getUTCFullYear() + 1);
+  else d.setUTCMonth(d.getUTCMonth() + 1);
+  if (d.getUTCDate() !== day) d.setUTCDate(0); // clamp to month end
+  return d.toISOString().slice(0, 10);
+}
+
+// One invoice per subscription per billing period, so nothing is billed twice.
+function ensureInvoice(s) {
+  if (invoices.some(i => i.subId === s.id && i.period === s.nextDate)) return null;
+  invNo += 1;
+  localStorage.setItem('lc_invno', invNo);
+  const inv = {
+    id: invNo, no: 'INV-' + String(invNo).padStart(4, '0'),
+    subId: s.id, subName: s.name, amount: s.price,
+    issued: today(), due: s.nextDate, period: s.nextDate, status: 'Confirmed'
+  };
+  invoices.push(inv);
+  return inv;
+}
+
+// Runs on every page load: when a billing date passes, move to the next period and invoice it.
+function runBilling() {
+  let changed = false;
+  subs.forEach(s => {
+    let n = 0;
+    while (daysUntil(s.nextDate) <= 0 && n++ < 240) {
+      s.nextDate = addCycle(s.nextDate, s.cycle);
+      ensureInvoice(s);
+      changed = true;
+    }
+  });
+  if (changed) saveAll();
+}
+
+const isOverdue = i => i.status !== 'Paid' && daysUntil(i.due) < 0;
+
+$('invList').addEventListener('click', e => {
+  const id = Number(e.target.dataset.pay);
+  const inv = invoices.find(i => i.id === id);
+  if (!inv) return;
+  inv.status = 'Paid';
+  inv.paidDate = today();
+  inv.method = $('payMethod').value;
+  saveAll(); render();
+});
+
+function renderAccount() {
+  const sum = list => list.reduce((t, i) => t + i.amount, 0);
+  const paid = invoices.filter(i => i.status === 'Paid');
+  const unpaid = invoices.filter(i => i.status !== 'Paid');
+  $('accStats').innerHTML = `
+    <div><b>${subs.length}</b><span>active subscriptions</span></div>
+    <div><b>${money(subs.reduce((t, s) => t + monthly(s), 0))}</b><span>recurring per month</span></div>
+    <div><b>${money(sum(paid))}</b><span>paid so far</span></div>
+    <div><b>${money(sum(unpaid))}</b><span>outstanding</span></div>
+    <div><b>${invoices.filter(isOverdue).length}</b><span>overdue invoices</span></div>`;
+
+  $('accSubs').innerHTML = subs.length ? [...subs].sort((a, b) => a.nextDate.localeCompare(b.nextDate)).map(s => {
+    const latest = invoices.filter(i => i.subId === s.id).sort((a, b) => b.id - a.id)[0];
+    const d = daysUntil(s.nextDate);
+    const state = !latest ? 'No invoice yet' : isOverdue(latest) ? 'Latest invoice overdue' : latest.status === 'Paid' ? 'Latest invoice paid' : 'Invoice awaiting payment';
+    const cls = latest && isOverdue(latest) ? 'warn' : latest && latest.status === 'Paid' ? 'keep' : 'soon';
+    return `<li class="${cls}"><div><span class="name">${esc(s.name)}</span><br>
+      <span class="meta">Active · ${money(s.price)} ${s.cycle} · next bill ${esc(s.nextDate)} (${d <= 0 ? 'now' : 'in ' + d + ' days'})</span></div>
+      <span class="verdict">${state}</span></li>`;
+  }).join('') : emptyRow('No subscriptions yet. Add one and its invoice appears here.');
+
+  $('invList').innerHTML = invoices.length ? [...invoices].sort((a, b) => b.id - a.id).map(i => {
+    const status = i.status === 'Paid' ? `Paid ${esc(i.paidDate)} by ${esc(i.method)}` : isOverdue(i) ? 'Overdue' : 'Awaiting payment';
+    const cls = i.status === 'Paid' ? 'keep' : isOverdue(i) ? 'warn' : 'soon';
+    return `<li class="${cls}"><div><span class="name">${esc(i.no)} · ${esc(i.subName)}</span><br>
+      <span class="meta">${money(i.amount)} · issued ${esc(i.issued)} · due ${esc(i.due)}</span></div>
+      <div class="actions"><span class="verdict">${status}</span>
+      ${i.status === 'Paid' ? '' : `<button class="pay" data-pay="${i.id}">Mark paid</button>`}</div></li>`;
+  }).join('') : emptyRow('No invoices yet.');
+}
+
+function render() { renderSubs(); renderUsage(); renderDashboard(); renderAccount(); }
 
 /* ---------- Start ---------- */
+runBilling();
 const start = location.hash.slice(1);
-show(['subscriptions', 'usage', 'dashboard'].includes(start) ? start : (subs.length ? 'dashboard' : 'subscriptions'));
+show(['subscriptions', 'usage', 'dashboard', 'account'].includes(start) ? start : (subs.length ? 'dashboard' : 'subscriptions'));

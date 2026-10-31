@@ -17,6 +17,7 @@
     <button data-tab="subscriptions">Subscriptions</button>
     <button data-tab="usage">Usage</button>
     <button data-tab="dashboard">Dashboard</button>
+    <button data-tab="account">Account</button>
   </nav>
 </header>
 
@@ -36,6 +37,7 @@
       <label>Website <input id="subUrl" type="url" placeholder="https://"></label>
       <button class="primary" type="submit">Save subscription</button>
     </form>
+    <p id="subMsg" class="msg" role="status"></p>
     <ul id="subList" class="rows"></ul>
   </section>
 
@@ -66,6 +68,21 @@
       <input id="threshold" type="number" min="1"> per use
     </label>
     <ul id="verdicts" class="rows"></ul>
+  </section>
+
+  <!-- 4. ACCOUNT: subscription tracker + invoices -->
+  <section id="account" class="panel">
+    <h2>Your account</h2>
+    <div id="accStats" class="stats"></div>
+    <h3>Subscription tracker</h3>
+    <ul id="accSubs" class="rows"></ul>
+    <h3>Invoices</h3>
+    <label class="inline">Payment method
+      <select id="payMethod">
+        <option>UPI</option><option>Card</option><option>Bank transfer</option><option>Cash</option>
+      </select>
+    </label>
+    <ul id="invList" class="rows"></ul>
   </section>
 </main>
 <script src="script.js"></script>
