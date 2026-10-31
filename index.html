@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Last Call</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1 class="brand">Last Call</h1>
+  <p class="tag">Know what each subscription costs you per use, before it renews.</p>
+  <nav id="nav" aria-label="Sections">
+    <button data-tab="subscriptions">Subscriptions</button>
+    <button data-tab="usage">Usage</button>
+    <button data-tab="dashboard">Dashboard</button>
+  </nav>
+</header>
+
+<main>
+  <!-- 1. SUBSCRIPTION MANAGEMENT -->
+  <section id="subscriptions" class="panel">
+    <h2>Your subscriptions</h2>
+    <p class="hint">Pick a service to fill in the name and link, or type your own.</p>
+    <div id="presets" class="chips"></div>
+    <form id="subForm" class="form">
+      <label>Name <input id="subName" required maxlength="40"></label>
+      <label>Price <input id="subPrice" type="number" min="0" step="0.01" required></label>
+      <label>Billed
+        <select id="subCycle"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+      </label>
+      <label>Next payment <input id="subDate" type="date" required></label>
+      <label>Website <input id="subUrl" type="url" placeholder="https://"></label>
+      <button class="primary" type="submit">Save subscription</button>
+    </form>
+    <ul id="subList" class="rows"></ul>
+  </section>
+
+  <!-- 2. USAGE TRACKING -->
+  <section id="usage" class="panel">
+    <h2>Log your usage</h2>
+    <form id="useForm" class="form">
+      <label>Subscription <select id="useSub" required></select></label>
+      <label>Date <input id="useDate" type="date" required></label>
+      <label>Minutes used <input id="useMin" type="number" min="1" required></label>
+      <button class="primary" type="submit">Log usage</button>
+    </form>
+    <h3>Last 30 days</h3>
+    <ul id="useSummary" class="rows"></ul>
+    <h3>Recent entries</h3>
+    <ul id="useLog" class="rows"></ul>
+  </section>
+
+  <!-- 3. DASHBOARD -->
+  <section id="dashboard" class="panel">
+    <div id="reminders"></div>
+    <h2>Dashboard</h2>
+    <div id="stats" class="stats"></div>
+    <h3>Coming up</h3>
+    <ul id="upcoming" class="rows"></ul>
+    <h3>Worth keeping?</h3>
+    <label class="inline">Cancel suggestion above
+      <input id="threshold" type="number" min="1"> per use
+    </label>
+    <ul id="verdicts" class="rows"></ul>
+  </section>
+</main>
+<script src="script.js"></script>
+</body>
+</html>
