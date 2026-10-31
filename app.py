@@ -7,7 +7,7 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = "lastcall-secret-key-change-later"
 
-DB = Path(__file__).parent / "database" / "lastcall.db"
+DB = Path(__file__).parent / "lastcall.db"
 
 # Database fields for each module
 MODULES = {
