@@ -1,179 +1,497 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Brightloop - Subscription Management</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172a26">
+  <title>Last Call | Subscription Management</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1d2927;
+      --muted: #78837f;
+      --line: #e5eae6;
+      --paper: #fff;
+      --canvas: #f5f7f4;
+      --forest: #183c34;
+      --forest-soft: #24584b;
+      --lime: #d3ef83;
+      --coral: #e77e61;
+      --sky: #83b9d1;
+      --shadow: 0 12px 35px rgba(27, 49, 42, .055);
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--canvas); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; }
+    .sidebar {
+      position: fixed; inset: 0 auto 0 0; z-index: 5; width: 252px; padding: 27px 16px 18px;
+      display: flex; flex-direction: column; color: #e8f0e9; background: var(--forest);
+    }
+    .brand { display: flex; gap: 11px; align-items: center; padding: 0 11px 29px; }
+    .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--lime); color: var(--forest); font-size: 19px; font-weight: 900; }
+    .brand-name { font-family: Georgia, serif; font-size: 21px; letter-spacing: .1px; }
+    .nav-label { padding: 12px 12px 7px; color: #9ab0a6; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
+    .nav-list { display: grid; gap: 3px; }
+    .nav-link { display: flex; align-items: center; gap: 12px; min-height: 41px; padding: 0 12px; color: #ccdad2; text-decoration: none; border-radius: 7px; font-size: 13px; transition: background .16s, color .16s; }
+    .nav-link:hover, .nav-link.active { color: #fff; background: #2a5147; }
+    .nav-link.active { box-shadow: inset 3px 0 var(--lime); }
+    .nav-icon { width: 18px; text-align: center; font-size: 15px; opacity: .9; }
+    .sidebar-foot { margin-top: auto; padding: 14px 10px 0; border-top: 1px solid #31564c; }
+    .local-note { color: #aec1b7; font-size: 11px; line-height: 1.5; }
+    .sidebar-user { display: flex; gap: 10px; align-items: center; margin-top: 17px; }
+    .avatar { width: 33px; height: 33px; display: grid; place-items: center; border-radius: 50%; color: var(--forest); background: var(--lime); font-size: 12px; font-weight: 800; }
+    .user-name { font-size: 12px; font-weight: 650; }
+    .user-caption { margin-top: 2px; color: #a9beb4; font-size: 10px; }
+    .main { min-height: 100vh; margin-left: 252px; }
+    .topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 35px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); }
+    .crumb { color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .date-label { color: var(--muted); font-size: 12px; }
+    .content { max-width: 1480px; margin: 0 auto; padding: 32px 35px 48px; }
+    .page-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 25px; }
+    .eyebrow { margin-bottom: 7px; color: #628276; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 7px; font-family: Georgia, serif; font-size: 30px; font-weight: 500; letter-spacing: 0; }
+    .subtitle { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+    h2 { margin-bottom: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
+    .button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 0; border-radius: 6px; color: #fff; background: var(--forest); font-size: 12px; font-weight: 650; transition: background .15s, transform .15s; }
+    .button:hover { background: var(--forest-soft); transform: translateY(-1px); }
+    .button.secondary { color: var(--forest); background: #eaf0e9; }
+    .button.secondary:hover { background: #dce8df; }
+    .button.danger { min-height: 30px; padding: 0 9px; color: #a64e3c; background: #fff0ec; font-size: 11px; }
+    .button.danger:hover { background: #ffe2da; }
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 18px; }
+    .metric { position: relative; overflow: hidden; min-height: 124px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); box-shadow: var(--shadow); }
+    .metric:after { position: absolute; top: -20px; right: -16px; width: 82px; height: 82px; content: ""; border-radius: 50%; background: var(--metric-tint, #e5f1e7); opacity: .9; }
+    .metric-label { position: relative; z-index: 1; color: var(--muted); font-size: 12px; }
+    .metric-value { position: relative; z-index: 1; margin-top: 16px; font-family: Georgia, serif; font-size: 29px; }
+    .metric-mark { position: absolute; z-index: 1; top: 17px; right: 17px; color: var(--forest); font-size: 17px; }
+    .panel { margin-bottom: 17px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); box-shadow: var(--shadow); }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .panel-body { padding: 20px; }
+    .table-wrap { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    th { padding: 11px 13px; color: #77827d; background: #f8faf8; text-align: left; font-size: 10px; font-weight: 750; letter-spacing: .45px; text-transform: uppercase; }
+    td { padding: 12px 13px; border-top: 1px solid #edf0ed; font-size: 12px; }
+    tr:hover td { background: #fbfcfa; }
+    .empty { padding: 32px 14px; color: var(--muted); text-align: center; font-size: 12px; }
+    .toolbar { display: flex; align-items: center; gap: 9px; }
+    .search { width: min(230px, 45vw); min-height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 6px; outline: 0; background: #fff; font-size: 12px; }
+    .search:focus, input:focus, select:focus { border-color: #82a993; box-shadow: 0 0 0 3px rgba(69, 125, 97, .1); outline: 0; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+    .field label { display: block; margin-bottom: 7px; color: #586760; font-size: 11px; font-weight: 650; }
+    .field input, .field select { width: 100%; min-height: 39px; padding: 0 10px; border: 1px solid #dfe6e0; border-radius: 5px; color: var(--ink); background: #fff; font-size: 12px; }
+    .field textarea { width: 100%; min-height: 76px; padding: 10px; border: 1px solid #dfe6e0; border-radius: 5px; color: var(--ink); background: #fff; font: inherit; font-size: 12px; resize: vertical; }
+    .form-actions { display: flex; gap: 8px; grid-column: 1 / -1; padding-top: 2px; }
+    .invoice-section-title { margin: 0 0 15px; color: var(--forest); font-size: 13px; font-weight: 750; }
+    .invoice-lines { margin-top: 16px; }
+    .invoice-lines th, .invoice-lines td { padding-inline: 8px; }
+    .invoice-lines input, .invoice-lines select { width: 100%; min-width: 82px; min-height: 36px; padding: 0 8px; border: 1px solid #dfe6e0; border-radius: 5px; font-size: 12px; }
+    .invoice-lines .line-description { min-width: 160px; }
+    .invoice-totals { width: min(100%, 360px); margin: 18px 0 0 auto; }
+    .invoice-total-row { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; color: #586760; font-size: 12px; }
+    .invoice-total-row.grand { margin-top: 5px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--forest); font-size: 17px; font-weight: 750; }
+    .invoice-list-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .invoice-list-actions .button { min-height: 30px; padding-inline: 9px; }
+    .invoice-workspace { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(240px, .7fr); gap: 17px; align-items: start; }
+    .invoice-document { min-width: 0; padding: 22px; background: #fff; }
+    .invoice-document-header, .invoice-document-parties { display: flex; justify-content: space-between; gap: 20px; }
+    .invoice-document-header { padding-bottom: 17px; border-bottom: 2px solid var(--forest); }
+    .invoice-document-header h3 { margin: 0 0 5px; color: var(--forest); font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
+    .invoice-document-title { color: var(--forest); text-align: right; font-size: 19px; font-weight: 800; }
+    .invoice-document-meta, .invoice-document-parties p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .invoice-document-parties { padding: 17px 0; }
+    .invoice-document-parties > div { min-width: 0; flex: 1; }
+    .invoice-document-label { display: block; margin-bottom: 6px; color: #78837f; font-size: 9px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+    .invoice-document-parties strong { font-size: 12px; }
+    .invoice-document table { white-space: normal; }
+    .invoice-document th, .invoice-document td { padding: 8px; font-size: 10px; }
+    .invoice-document-totals { width: min(100%, 260px); margin-left: auto; }
+    .invoice-document-totals .invoice-total-row { font-size: 11px; }
+    .invoice-document-totals .invoice-total-row.grand { font-size: 14px; }
+    .invoice-payment-card { padding: 16px; }
+    .invoice-payment-card .field { margin-bottom: 15px; }
+    .invoice-payment-card .invoice-total-row { border-top: 1px solid var(--line); }
+    .invoice-payment-name { color: var(--forest); font-size: 14px; font-weight: 750; }
+    .invoice-profile > summary { display: flex; list-style: none; cursor: pointer; }
+    .invoice-profile > summary::-webkit-details-marker { display: none; }
+    .invoice-profile > summary::after { margin-left: auto; content: '+'; color: var(--forest); font-size: 18px; }
+    .invoice-profile[open] > summary::after { content: '−'; }
+    @media (max-width: 900px) { .invoice-workspace { grid-template-columns: 1fr; } }
+    .status { display: inline-block; padding: 5px 8px; border-radius: 20px; color: #396e52; background: #e8f4e9; font-size: 10px; font-weight: 700; }
+    .status.pending, .status.unpaid { color: #9a6b22; background: #fff4dc; }
+    .status.cancelled { color: #a64e3c; background: #fff0ec; }
+    .split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, .8fr); gap: 17px; }
+    .summary-total { color: var(--forest); font-family: Georgia, serif; font-size: 34px; }
+    .muted-small { margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .notice { position: fixed; z-index: 20; right: 22px; bottom: 20px; max-width: min(380px, calc(100vw - 32px)); padding: 12px 16px; border-radius: 6px; color: #fff; background: var(--forest); box-shadow: 0 8px 24px #172a2633; font-size: 12px; animation: enter .2s ease-out; }
+    @keyframes enter { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    .mobile-bar { display: none; }
+    @media (max-width: 1050px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .content { padding-inline: 23px; } .topbar { padding-inline: 23px; } }
+    @media (max-width: 700px) {
+      .sidebar { position: static; width: auto; height: auto; padding: 11px 12px; }
+      .brand { padding: 0 5px 10px; }
+      .sidebar .nav-label, .sidebar-foot { display: none; }
+      .nav-list { display: flex; overflow-x: auto; gap: 5px; padding-bottom: 2px; }
+      .nav-link { flex: 0 0 auto; min-height: 34px; gap: 7px; padding: 0 10px; font-size: 11px; }
+      .nav-icon { width: auto; }
+      .main { margin-left: 0; }
+      .topbar { height: 48px; padding-inline: 15px; }
+      .content { padding: 24px 15px 34px; }
+      .page-heading { align-items: flex-start; }
+      h1 { font-size: 26px; }
+      .metrics { gap: 9px; }
+      .metric { min-height: 106px; padding: 14px; }
+      .metric-value { margin-top: 13px; font-size: 25px; }
+      .panel-head, .panel-body { padding: 15px; }
+      .split { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .date-label { display: none; }
+    }
+    @media (max-width: 390px) { .metrics { grid-template-columns: 1fr 1fr; } .panel-head { align-items: flex-start; } .toolbar { flex-wrap: wrap; justify-content: flex-end; } }
+  </style>
 </head>
 <body>
-
-  <!-- LOGIN PAGE -->
-  <section class="auth-page" id="auth-page">
-    <div class="auth-card">
-
-      <div class="auth-brand">
-        <h1>Brightloop</h1>
-        <p>Subscription Management System</p>
-      </div>
-
-      <!-- LOGIN PANEL -->
-      <div id="login-panel">
-        <h2>Welcome Back</h2>
-        <p class="subtitle">Choose your account type to continue</p>
-
-        <div class="login-options">
-          <button type="button"
-                  class="login-option active"
-                  id="admin-option"
-                  onclick="selectLoginRole('Admin', this)">
-            <span>🛡️</span>
-            <strong>Admin</strong>
-            <small>Manage the platform</small>
-          </button>
-
-          <button type="button"
-                  class="login-option"
-                  id="customer-option"
-                  onclick="selectLoginRole('Customer', this)">
-            <span>👤</span>
-            <strong>Customer</strong>
-            <small>Manage your subscriptions</small>
-          </button>
-        </div>
-
-        <form id="login-form">
-          <label for="login-email">Email Address</label>
-          <input type="email"
-                 id="login-email"
-                 placeholder="Enter your email"
-                 required>
-
-          <label for="login-password">Password</label>
-          <input type="password"
-                 id="login-password"
-                 placeholder="Enter your password"
-                 required>
-
-          <p id="login-error" class="auth-error"></p>
-
-          <button type="submit" class="auth-submit">
-            Login
-          </button>
-        </form>
-
-        <p id="customer-register-link" class="auth-switch">
-          New customer?
-          <a href="#" onclick="showAuthPanel('register'); return false;">
-            Create an account
-          </a>
-        </p>
-      </div>
-
-      <!-- REGISTER PANEL -->
-      <div id="register-panel" hidden>
-        <h2>Create Customer Account</h2>
-        <p class="subtitle">Register to manage your subscriptions</p>
-
-        <form id="register-form">
-          <label for="register-name">Full Name</label>
-          <input type="text"
-                 id="register-name"
-                 placeholder="Enter your name"
-                 required>
-
-          <label for="register-email">Email Address</label>
-          <input type="email"
-                 id="register-email"
-                 placeholder="Enter your email"
-                 required>
-
-          <label for="register-password">Password</label>
-          <input type="password"
-                 id="register-password"
-                 placeholder="Create a password"
-                 required>
-
-          <small class="password-help">
-            More than 8 characters, including uppercase,
-            lowercase and a special character.
-          </small>
-
-          <label for="register-confirm">Confirm Password</label>
-          <input type="password"
-                 id="register-confirm"
-                 placeholder="Confirm your password"
-                 required>
-
-          <p id="register-error" class="auth-error"></p>
-
-          <button type="submit" class="auth-submit">
-            Register
-          </button>
-        </form>
-
-        <p class="auth-switch">
-          Already registered?
-          <a href="#" onclick="showAuthPanel('login'); return false;">
-            Login
-          </a>
-        </p>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- MAIN APPLICATION -->
-  <div class="app" id="main-app" hidden>
-
-    <!-- SIDEBAR -->
+  <div class="app">
     <aside class="sidebar">
-      <div class="sidebar-brand">
-        <h2>Brightloop</h2>
-        <span>Subscription System</span>
-      </div>
-
-      <nav id="navigation"></nav>
-
-      <div class="sidebar-bottom">
-        <div id="logged-in-user"></div>
-        <button id="logout-btn" class="logout-btn">
-          Logout
-        </button>
+      <div class="brand"><div class="brand-mark">L</div><div class="brand-name">Last Call</div></div>
+      <div class="nav-label">WORKSPACE</div>
+      <nav class="nav-list" aria-label="Workspace">
+        <a class="nav-link" href="#dashboard" data-view="dashboard"><span class="nav-icon">◫</span>Dashboard</a>
+        <a class="nav-link" href="#customers" data-view="customers"><span class="nav-icon">♙</span>Customers</a>
+        <a class="nav-link" href="#products" data-view="products"><span class="nav-icon">▧</span>Products</a>
+        <a class="nav-link" href="#plans" data-view="plans"><span class="nav-icon">◇</span>Plans</a>
+        <a class="nav-link" href="#subscriptions" data-view="subscriptions"><span class="nav-icon">↻</span>Subscriptions</a>
+        <div class="nav-label">BILLING</div>
+        <a class="nav-link" href="#quotations" data-view="quotations"><span class="nav-icon">▤</span>Quotations</a>
+        <a class="nav-link" href="#invoices" data-view="invoices"><span class="nav-icon">▣</span>Invoices</a>
+        <a class="nav-link" href="#discounts" data-view="discounts"><span class="nav-icon">％</span>Discounts</a>
+        <a class="nav-link" href="#payments" data-view="payments"><span class="nav-icon">⇄</span>Payments</a>
+        <div class="nav-label">ANALYTICS</div>
+        <a class="nav-link" href="#reports" data-view="reports"><span class="nav-icon">▥</span>Reports</a>
+        <a class="nav-link" href="#customer-portal" data-view="customer-portal"><span class="nav-icon">◎</span>Customer Portal</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="local-note">Your workspace is saved privately in this browser.</div>
+        <div class="sidebar-user"><div class="avatar" id="avatar">LC</div><div><div class="user-name" id="user-name">Local workspace</div><div class="user-caption">Subscription manager</div></div></div>
       </div>
     </aside>
-
-    <!-- MAIN CONTENT -->
-    <main class="main-content">
-
-      <header class="topbar">
-        <div>
-          <h2 id="page-heading">Dashboard</h2>
-          <p>Subscription Management System</p>
-        </div>
-      </header>
-
-      <section id="page-content"></section>
-
+    <main class="main">
+      <header class="topbar"><div class="crumb">Workspace <span aria-hidden="true"> / </span> <strong id="top-title">Dashboard</strong></div><div class="top-actions"><span class="date-label" id="today"></span><button class="button secondary" id="export-button" type="button" title="Download all records as JSON">↓ Export</button></div></header>
+      <section class="content" id="content" aria-live="polite"></section>
     </main>
   </div>
-
-  <!-- MODAL -->
-  <div class="modal-overlay" id="modal" hidden>
-    <div class="modal">
-      <div class="modal-header">
-        <h2 id="modal-title">Details</h2>
-        <button id="modal-close" type="button">×</button>
-      </div>
-
-      <div id="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- TOAST -->
-  <div id="toast" class="toast"></div>
-
-  <script src="script.js"></script>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <script>
+    (() => {
+      const modules = {
+        customers: { title: 'Customers', fields: ['name', 'email', 'company', 'phone', 'address', 'gstin'] },
+        products: { title: 'Products', fields: ['name', 'category', 'price'] },
+        plans: { title: 'Plans', fields: ['name', 'price', 'billing_cycle', 'description'] },
+        subscriptions: { title: 'Subscriptions', fields: ['customer', 'plan', 'start_date', 'renewal_date', 'amount', 'status'] },
+        quotations: { title: 'Quotations', fields: ['customer', 'quotation_date', 'amount', 'status'] },
+        invoices: { title: 'Invoices', fields: ['customer', 'invoice_date', 'due_date', 'amount', 'status'] },
+        discounts: { title: 'Discounts', fields: ['code', 'discount_type', 'value', 'start_date', 'end_date'] },
+        payments: { title: 'Payments', fields: ['invoice', 'method', 'amount', 'payment_date', 'status'] }
+      };
+      const storageKey = 'lastcall-workspace-v1';
+      const emptyData = () => Object.fromEntries(Object.keys(modules).map(key => [key, []]));
+      let data;
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        data = { ...emptyData(), ...(saved && typeof saved === 'object' ? saved : {}) };
+        for (const key of Object.keys(modules)) if (!Array.isArray(data[key])) data[key] = [];
+      } catch { data = emptyData(); }
+      data.business = { name: 'Last Call', address: '', gstin: '', email: '', phone: '', paymentDetails: '', ...(data.business || {}) };
+      let currentView = location.hash.slice(1) || 'dashboard';
+      let noticeTimer;
+      const content = document.getElementById('content');
+      const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+      const label = value => value.replaceAll('_', ' ').replace(/\b\w/g, char => char.toUpperCase());
+      const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value) || 0);
+      const save = () => localStorage.setItem(storageKey, JSON.stringify(data));
+      const notify = message => {
+        const box = document.getElementById('notice');
+        box.textContent = message;
+        box.hidden = false;
+        clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => { box.hidden = true; }, 2600);
+      };
+      const recordRows = (key, fields, records, emptyText = 'No records yet. Add your first record above.') => {
+        if (!records.length) return `<tr><td class="empty" colspan="${fields.length + 2}">${escapeHtml(emptyText)}</td></tr>`;
+        return records.slice().reverse().map(record => `<tr><td>${record.id}</td>${fields.map(field => `<td>${field === 'status' ? `<span class="status ${String(record[field] || '').toLowerCase()}">${escapeHtml(record[field])}</span>` : escapeHtml(record[field])}</td>`).join('')}<td><button class="button danger" type="button" data-delete="${key}" data-id="${record.id}" aria-label="Delete record ${record.id}">Delete</button></td></tr>`).join('');
+      };
+      const renderTable = (key, records, fields) => `<div class="table-wrap"><table><thead><tr><th>ID</th>${fields.map(field => `<th>${label(field)}</th>`).join('')}<th>Action</th></tr></thead><tbody id="records-body">${recordRows(key, fields, records)}</tbody></table></div>`;
+      const fieldControl = field => {
+        const title = label(field);
+        if (field.includes('date')) return `<div class="field"><label for="field-${field}">${title}</label><input id="field-${field}" name="${field}" type="date" required></div>`;
+        if (field === 'status') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select status</option>${['Active', 'Pending', 'Paid', 'Unpaid', 'Cancelled'].map(value => `<option>${value}</option>`).join('')}</select></div>`;
+        if (field === 'billing_cycle') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select cycle</option>${['Monthly', 'Quarterly', 'Yearly'].map(value => `<option>${value}</option>`).join('')}</select></div>`;
+        if (field === 'discount_type') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select type</option><option>Percentage</option><option>Fixed amount</option></select></div>`;
+        if (field === 'method') return `<div class="field"><label for="field-${field}">${title}</label><select id="field-${field}" name="${field}" required><option value="">Select method</option><option>Card</option><option>Bank transfer</option><option>Cash</option><option>UPI</option><option>Other</option></select></div>`;
+        if (['amount', 'price', 'value'].includes(field)) return `<div class="field"><label for="field-${field}">${title}${field !== 'value' || document.querySelector('[name="discount_type"]')?.value !== 'Percentage' ? ' (₹)' : ' (%)'}</label><input id="field-${field}" name="${field}" type="number" min="0" step="0.01" placeholder="0.00" required></div>`;
+        return `<div class="field"><label for="field-${field}">${title}</label><input id="field-${field}" name="${field}" type="text" placeholder="Enter ${title.toLowerCase()}" required></div>`;
+      };
+      const heading = (eyebrow, title, subtitle, action = '') => `<div class="page-heading"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p class="subtitle">${subtitle}</p></div>${action}</div>`;
+      const metric = (name, value, mark, tint) => `<div class="metric" style="--metric-tint:${tint}"><div class="metric-label">${name}</div><div class="metric-mark">${mark}</div><div class="metric-value">${value}</div></div>`;
+      const simpleTable = (title, key, fields, records, emptyText) => `<section class="panel"><div class="panel-head"><h2>${title}</h2></div><div class="table-wrap"><table><thead><tr>${fields.map(field => `<th>${label(field)}</th>`).join('')}</tr></thead><tbody>${records.length ? records.slice().reverse().slice(0, 8).map(record => `<tr>${fields.map(field => `<td>${field === 'amount' ? money(record[field]) : field === 'status' ? `<span class="status ${String(record[field] || '').toLowerCase()}">${escapeHtml(record[field])}</span>` : escapeHtml(record[field])}</td>`).join('')}</tr>`).join('') : `<tr><td class="empty" colspan="${fields.length}">${emptyText}</td></tr>`}</tbody></table></div></section>`;
+      function renderDashboard() {
+        const count = key => data[key].length;
+        const recent = data.subscriptions.slice(-5).reverse();
+        content.innerHTML = `${heading('OVERVIEW', 'Dashboard', 'A clear view of your subscription business today.')}
+          <div class="metrics">${metric('Customers', count('customers'), '♙', '#e3f0e6')}${metric('Products', count('products'), '▧', '#e2eff4')}${metric('Plans', count('plans'), '◇', '#f7ecdb')}${metric('Subscriptions', count('subscriptions'), '↻', '#f7e6df')}${metric('Invoices', count('invoices'), '▣', '#e7edf7')}${metric('Payments', count('payments'), '⇄', '#e9f1dc')}</div>
+          ${simpleTable('Recent subscriptions', 'subscriptions', ['customer', 'plan', 'renewal_date', 'amount', 'status'], recent, 'No subscriptions recorded yet.')}`;
+      }
+      function renderModule(key) {
+        const module = modules[key];
+        const fields = module.fields;
+        content.innerHTML = `${heading('WORKSPACE / RECORDS', module.title, `Add and manage your ${module.title.toLowerCase()}.`)}
+          <section class="panel"><div class="panel-head"><h2>Add new ${module.title.toLowerCase().replace(/s$/, '')}</h2></div><div class="panel-body"><form id="record-form" class="form-grid">${fields.map(fieldControl).join('')}<div class="form-actions"><button class="button" type="submit">＋ Save record</button></div></form></div></section>
+          <section class="panel"><div class="panel-head"><h2>${module.title} list <span class="crumb">(${data[key].length})</span></h2><div class="toolbar"><input class="search" id="search" type="search" placeholder="Search ${module.title.toLowerCase()}" aria-label="Search ${module.title.toLowerCase()}"></div></div>${renderTable(key, data[key], fields)}</section>`;
+        document.getElementById('record-form').addEventListener('submit', event => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          const record = Object.fromEntries(fields.map(field => [field, String(form.get(field) || '').trim()]));
+          record.id = data[key].reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+          data[key].push(record);
+          save(); render(); notify(`${module.title.slice(0, -1)} saved.`);
+        });
+        document.getElementById('search').addEventListener('input', event => {
+          const query = event.target.value.toLowerCase();
+          const results = data[key].filter(record => fields.some(field => String(record[field] || '').toLowerCase().includes(query)));
+          document.getElementById('records-body').innerHTML = recordRows(key, fields, results, 'No matching records.');
+        });
+      }
+      const localDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const nextInvoiceNumber = () => `INV-${new Date().getFullYear()}-${String(data.invoices.reduce((max, invoice) => Math.max(max, Number(invoice.id) || 0), 0) + 1).padStart(4, '0')}`;
+      function invoiceLine() {
+        const products = data.products.map(product => `<option value="${product.id}">${escapeHtml(product.name)}${product.category ? ` · ${escapeHtml(product.category)}` : ''}</option>`).join('');
+        return `<tr class="invoice-line"><td><select class="line-product" aria-label="Choose product"><option value="">Custom item</option>${products}</select></td><td><input class="line-description" aria-label="Item description" placeholder="Description" required></td><td><input class="line-quantity" aria-label="Quantity" type="number" min="0.01" step="0.01" value="1" required></td><td><input class="line-rate" aria-label="Unit price" type="number" min="0" step="0.01" placeholder="0.00" required></td><td class="line-amount">₹0.00</td><td><button class="button danger remove-line" type="button" aria-label="Remove item">×</button></td></tr>`;
+      }
+      function renderInvoices() {
+        const today = localDate(new Date());
+        const due = new Date();
+        due.setDate(due.getDate() + 30);
+        const customers = data.customers.map(customer => `<option value="${customer.id}">${escapeHtml(customer.name)}${customer.company ? ` · ${escapeHtml(customer.company)}` : ''}</option>`).join('');
+        const paymentMethods = [...new Set([...data.payments.map(payment => payment.method).filter(Boolean), 'Bank transfer', 'UPI', 'Cash', 'Card', 'Other'])];
+        const lastPaymentMethod = data.payments.slice().reverse().find(payment => payment.method)?.method || 'Bank transfer';
+        const paymentOptions = paymentMethods.map(method => `<option${method === lastPaymentMethod ? ' selected' : ''}>${escapeHtml(method)}</option>`).join('');
+        const records = data.invoices.slice().reverse().map(invoice => `<tr><td>${escapeHtml(invoice.invoice_no || `INV-${invoice.id}`)}</td><td>${escapeHtml(invoice.customer)}</td><td>${escapeHtml(invoice.invoice_date)}</td><td>${escapeHtml(invoice.due_date)}</td><td>${money(invoice.amount)}</td><td><span class="status ${String(invoice.status || '').toLowerCase()}">${escapeHtml(invoice.status || 'Unpaid')}</span></td><td><div class="invoice-list-actions"><button class="button secondary" type="button" data-print-invoice="${invoice.id}" title="Print or save as PDF">▣ Print</button><button class="button danger" type="button" data-delete="invoices" data-id="${invoice.id}" aria-label="Delete invoice ${escapeHtml(invoice.invoice_no || invoice.id)}">Delete</button></div></td></tr>`).join('');
+        content.innerHTML = `${heading('BILLING / INVOICES', 'Invoices', 'Create itemized invoices from your customer and product records.')}
+          <form id="invoice-form">
+            <section class="panel"><div class="panel-head"><h2>Invoice details</h2><span class="crumb">${escapeHtml(nextInvoiceNumber())}</span></div><div class="panel-body">
+              <div class="form-grid">
+                <div class="field"><label for="invoice-customer">Customer</label><select id="invoice-customer" required><option value="">${customers ? 'Select a saved customer' : 'Add a customer first'}</option>${customers}</select></div>
+                <div class="field"><label for="invoice-date">Invoice date</label><input id="invoice-date" type="date" value="${today}" required></div>
+                <div class="field"><label for="invoice-due">Due date</label><input id="invoice-due" type="date" value="${localDate(due)}" required></div>
+              </div>
+              <div class="invoice-lines table-wrap"><table><thead><tr><th>Product</th><th>Description</th><th>Qty</th><th>Rate (₹)</th><th>Amount</th><th></th></tr></thead><tbody id="invoice-lines-body">${invoiceLine()}</tbody></table></div>
+              <div class="form-actions"><button class="button secondary" id="add-invoice-line" type="button">＋ Add item</button></div>
+            </div></section>
+            <div class="invoice-workspace">
+              <section class="panel"><div class="panel-head"><h2>Invoice document</h2><span class="crumb">Live preview</span></div><div class="invoice-document" id="invoice-preview"></div></section>
+              <section class="panel"><div class="panel-head"><h2>Payment</h2></div><div class="invoice-payment-card">
+                <div class="field"><label for="invoice-payment-method">Payment method</label><select id="invoice-payment-method">${paymentOptions}</select></div>
+                <span class="invoice-document-label">Payment name on invoice</span><div class="invoice-payment-name" id="invoice-payment-name"></div>
+                <p class="muted-small" id="invoice-payment-details"></p>
+                <div class="field" style="margin-top:18px"><label for="invoice-discount">Discount (₹)</label><input id="invoice-discount" type="number" min="0" step="0.01" value="0"></div>
+                <div class="field"><label for="invoice-tax">GST / tax (%)</label><input id="invoice-tax" type="number" min="0" max="100" step="0.01" value="0"></div>
+                <div class="field"><label for="invoice-notes">Notes / terms</label><textarea id="invoice-notes" placeholder="Thank you for your business"></textarea></div>
+                <div class="invoice-total-row"><span>Total due</span><strong id="invoice-grand-total">₹0.00</strong></div>
+                <div class="form-actions"><button class="button" type="submit">▣ Generate invoice</button></div>
+              </div></section>
+            </div>
+            <details class="panel invoice-profile"><summary class="panel-head"><h2>Business profile</h2><span class="crumb">Saved and reused on invoices</span></summary><div class="panel-body"><div class="form-grid">
+              <div class="field"><label for="seller-name">Business name</label><input id="seller-name" value="${escapeHtml(data.business.name)}"></div><div class="field"><label for="seller-gstin">GSTIN</label><input id="seller-gstin" value="${escapeHtml(data.business.gstin)}"></div><div class="field"><label for="seller-email">Email</label><input id="seller-email" type="email" value="${escapeHtml(data.business.email)}"></div><div class="field"><label for="seller-phone">Phone</label><input id="seller-phone" value="${escapeHtml(data.business.phone)}"></div><div class="field"><label for="seller-address">Business address</label><input id="seller-address" value="${escapeHtml(data.business.address)}"></div><div class="field"><label for="payment-details">Payment instructions</label><input id="payment-details" value="${escapeHtml(data.business.paymentDetails)}" placeholder="Bank account, UPI ID, or payment details"></div>
+            </div></div></details>
+          </form>
+          <section class="panel"><div class="panel-head"><h2>Invoice history <span class="crumb">(${data.invoices.length})</span></h2></div><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Invoice date</th><th>Due date</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>${records || '<tr><td class="empty" colspan="7">Generated invoices will appear here.</td></tr>'}</tbody></table></div></section>`;
+        const form = document.getElementById('invoice-form');
+        const updateInvoicePreview = (subtotal, discount, taxRate, tax, total) => {
+          const customer = data.customers.find(item => String(item.id) === document.getElementById('invoice-customer').value) || {};
+          const seller = {
+            name: document.getElementById('seller-name').value.trim(),
+            address: document.getElementById('seller-address').value.trim(),
+            gstin: document.getElementById('seller-gstin').value.trim(),
+            email: document.getElementById('seller-email').value.trim(),
+            phone: document.getElementById('seller-phone').value.trim(),
+            paymentDetails: document.getElementById('payment-details').value.trim()
+          };
+          const items = [...document.querySelectorAll('.invoice-line')].map(row => ({
+            description: row.querySelector('.line-description').value.trim(),
+            quantity: Number(row.querySelector('.line-quantity').value) || 0,
+            rate: Number(row.querySelector('.line-rate').value) || 0
+          }));
+          const method = document.getElementById('invoice-payment-method').value;
+          const itemRows = items.map(item => `<tr><td>${escapeHtml(item.description || 'Item description')}</td><td>${escapeHtml(item.quantity)}</td><td>${money(item.rate)}</td><td>${money(item.quantity * item.rate)}</td></tr>`).join('');
+          document.getElementById('invoice-payment-name').textContent = method || 'Select payment method';
+          document.getElementById('invoice-payment-details').textContent = seller.paymentDetails || 'Add bank or UPI details in Business profile to show payment instructions.';
+          document.getElementById('invoice-preview').innerHTML = `<div class="invoice-document-header"><div><h3>${escapeHtml(seller.name || 'Your business')}</h3><p class="invoice-document-meta">${escapeHtml(seller.address)}${seller.gstin ? ` · GSTIN: ${escapeHtml(seller.gstin)}` : ''}</p><p class="invoice-document-meta">${escapeHtml(seller.email)}${seller.phone ? ` · ${escapeHtml(seller.phone)}` : ''}</p></div><div><div class="invoice-document-title">INVOICE</div><p class="invoice-document-meta">${escapeHtml(nextInvoiceNumber())}</p><p class="invoice-document-meta">Date: ${escapeHtml(document.getElementById('invoice-date').value)}</p><p class="invoice-document-meta">Due: ${escapeHtml(document.getElementById('invoice-due').value)}</p></div></div>
+            <div class="invoice-document-parties"><div><span class="invoice-document-label">Bill to</span><strong>${escapeHtml(customer.name || 'Select a customer')}</strong><p>${escapeHtml(customer.company || '')}</p><p>${escapeHtml(customer.address || '')}</p><p>${customer.gstin ? `GSTIN: ${escapeHtml(customer.gstin)}` : ''}</p><p>${escapeHtml(customer.email || '')}${customer.phone ? ` · ${escapeHtml(customer.phone)}` : ''}</p></div><div><span class="invoice-document-label">Payment name</span><strong>${escapeHtml(method || 'Select payment method')}</strong><p>${escapeHtml(seller.paymentDetails)}</p></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${itemRows || '<tr><td colspan="4" class="empty">Add an item to this invoice.</td></tr>'}</tbody></table></div>
+            <div class="invoice-document-totals"><div class="invoice-total-row"><span>Subtotal</span><strong>${money(subtotal)}</strong></div><div class="invoice-total-row"><span>Discount</span><strong>− ${money(discount)}</strong></div><div class="invoice-total-row"><span>Tax (${escapeHtml(taxRate)}%)</span><strong>${money(tax)}</strong></div><div class="invoice-total-row grand"><span>Total due</span><strong>${money(total)}</strong></div></div>
+            ${document.getElementById('invoice-notes').value.trim() ? `<p class="invoice-document-meta" style="margin-top:18px">${escapeHtml(document.getElementById('invoice-notes').value.trim())}</p>` : ''}`;
+        };
+        const updateTotals = () => {
+          let subtotal = 0;
+          document.querySelectorAll('.invoice-line').forEach(row => {
+            const quantity = Number(row.querySelector('.line-quantity').value) || 0;
+            const rate = Number(row.querySelector('.line-rate').value) || 0;
+            const amount = quantity * rate;
+            row.querySelector('.line-amount').textContent = money(amount);
+            subtotal += amount;
+          });
+          const discount = Math.min(subtotal, Math.max(0, Number(document.getElementById('invoice-discount').value) || 0));
+          const taxRate = Math.max(0, Number(document.getElementById('invoice-tax').value) || 0);
+          const tax = (subtotal - discount) * taxRate / 100;
+          const total = subtotal - discount + tax;
+          document.getElementById('invoice-grand-total').textContent = money(total);
+          updateInvoicePreview(subtotal, discount, taxRate, tax, total);
+        };
+        form.addEventListener('input', updateTotals);
+        form.addEventListener('change', event => {
+          if (event.target.matches('.line-product')) {
+            const product = data.products.find(item => String(item.id) === event.target.value);
+            if (product) {
+              const row = event.target.closest('.invoice-line');
+              row.querySelector('.line-description').value = product.name;
+              row.querySelector('.line-rate').value = Number(product.price) || 0;
+            }
+          }
+          updateTotals();
+        });
+        document.getElementById('add-invoice-line').addEventListener('click', () => {
+          document.getElementById('invoice-lines-body').insertAdjacentHTML('beforeend', invoiceLine());
+        });
+        document.getElementById('invoice-lines-body').addEventListener('click', event => {
+          if (!event.target.closest('.remove-line')) return;
+          const rows = document.querySelectorAll('.invoice-line');
+          if (rows.length === 1) {
+            rows[0].querySelector('.line-description').value = '';
+            rows[0].querySelector('.line-rate').value = '';
+          } else event.target.closest('.invoice-line').remove();
+          updateTotals();
+        });
+        form.addEventListener('submit', event => {
+          event.preventDefault();
+          const customer = data.customers.find(item => String(item.id) === document.getElementById('invoice-customer').value);
+          const items = [...document.querySelectorAll('.invoice-line')].map(row => ({
+            description: row.querySelector('.line-description').value.trim(),
+            quantity: Number(row.querySelector('.line-quantity').value),
+            rate: Number(row.querySelector('.line-rate').value),
+            amount: Number(row.querySelector('.line-quantity').value) * Number(row.querySelector('.line-rate').value)
+          }));
+          if (!customer || !items.length || items.some(item => !item.description || item.quantity <= 0 || item.rate < 0)) {
+            notify('Select a customer and complete each invoice item.');
+            return;
+          }
+          const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+          const discount = Math.min(subtotal, Math.max(0, Number(document.getElementById('invoice-discount').value) || 0));
+          const taxRate = Math.max(0, Number(document.getElementById('invoice-tax').value) || 0);
+          const taxAmount = (subtotal - discount) * taxRate / 100;
+          const id = data.invoices.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
+          const invoice = {
+            id, invoice_no: `INV-${new Date().getFullYear()}-${String(id).padStart(4, '0')}`,
+            customer: customer.name, invoice_date: document.getElementById('invoice-date').value,
+            due_date: document.getElementById('invoice-due').value,
+            subtotal: Number(subtotal.toFixed(2)), discount: Number(discount.toFixed(2)),
+            tax_rate: taxRate, tax_amount: Number(taxAmount.toFixed(2)),
+            amount: Number((subtotal - discount + taxAmount).toFixed(2)), status: 'Unpaid',
+            items, customer_snapshot: { ...customer },
+            seller_snapshot: {
+              name: document.getElementById('seller-name').value.trim(),
+              address: document.getElementById('seller-address').value.trim(),
+              gstin: document.getElementById('seller-gstin').value.trim(),
+              email: document.getElementById('seller-email').value.trim(),
+              phone: document.getElementById('seller-phone').value.trim(),
+              paymentDetails: document.getElementById('payment-details').value.trim()
+            },
+            payment_method: document.getElementById('invoice-payment-method').value,
+            notes: document.getElementById('invoice-notes').value.trim()
+          };
+          data.business = { ...invoice.seller_snapshot };
+          data.invoices.push(invoice);
+          save(); render(); notify(`Invoice ${invoice.invoice_no} generated.`);
+        });
+        updateTotals();
+      }
+      function printInvoice(invoice) {
+        const seller = invoice.seller_snapshot || data.business;
+        const customer = invoice.customer_snapshot || data.customers.find(item => item.name === invoice.customer) || {};
+        const items = Array.isArray(invoice.items) ? invoice.items : [];
+        const rows = items.map(item => `<tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.quantity)}</td><td>${money(item.rate)}</td><td>${money(item.amount)}</td></tr>`).join('');
+        const page = window.open('', '_blank');
+        if (!page) { notify('Allow pop-ups to print this invoice.'); return; }
+        page.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(invoice.invoice_no || 'Invoice')}</title><style>body{font:14px Arial,sans-serif;color:#202b27;margin:40px auto;max-width:820px;padding:0 28px}header,.parties,.totals{display:flex;justify-content:space-between;gap:32px}header{border-bottom:2px solid #183c34;padding-bottom:22px}h1{color:#183c34;font-size:30px;margin:0}h2{font-size:15px;margin:0 0 9px}p{margin:5px 0;color:#586760;line-height:1.5}.parties{padding:24px 0}.parties>div{flex:1}table{width:100%;border-collapse:collapse;margin:15px 0}th,td{text-align:left;padding:11px;border-bottom:1px solid #e5eae6}th{background:#f5f7f4;color:#586760;font-size:11px;text-transform:uppercase}.totals{justify-content:flex-end}.totals table{width:300px}.totals td:last-child{text-align:right}.grand{font-weight:bold;font-size:17px;color:#183c34}.notes{margin-top:25px;padding-top:16px;border-top:1px solid #e5eae6}@media print{body{margin:0 auto;padding:15mm;max-width:none}button{display:none}}</style></head><body><header><div><h1>${escapeHtml(seller.name || 'Business')}</h1><p>${escapeHtml(seller.address || '')}</p><p>${seller.gstin ? `GSTIN: ${escapeHtml(seller.gstin)}` : ''}</p><p>${escapeHtml(seller.email || '')} ${escapeHtml(seller.phone || '')}</p></div><div><h1>INVOICE</h1><p><strong>${escapeHtml(invoice.invoice_no || `INV-${invoice.id}`)}</strong></p><p>Invoice date: ${escapeHtml(invoice.invoice_date)}</p><p>Due date: ${escapeHtml(invoice.due_date)}</p></div></header><section class="parties"><div><h2>Bill to</h2><p><strong>${escapeHtml(customer.name || invoice.customer)}</strong></p><p>${escapeHtml(customer.company || '')}</p><p>${escapeHtml(customer.address || '')}</p><p>${customer.gstin ? `GSTIN: ${escapeHtml(customer.gstin)}` : ''}</p><p>${escapeHtml(customer.email || '')} ${escapeHtml(customer.phone || '')}</p></div><div><h2>Payment</h2><p>Method: ${escapeHtml(invoice.payment_method || 'As agreed')}</p><p>${escapeHtml(seller.paymentDetails || '')}</p></div></section><table><thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows || `<tr><td>${escapeHtml(invoice.customer)}</td><td>1</td><td>${money(invoice.amount)}</td><td>${money(invoice.amount)}</td></tr>`}</tbody></table><section class="totals"><table><tr><td>Subtotal</td><td>${money(invoice.subtotal ?? invoice.amount)}</td></tr><tr><td>Discount</td><td>− ${money(invoice.discount)}</td></tr><tr><td>Tax${invoice.tax_rate ? ` (${escapeHtml(invoice.tax_rate)}%)` : ''}</td><td>${money(invoice.tax_amount)}</td></tr><tr class="grand"><td>Total due</td><td>${money(invoice.amount)}</td></tr></table></section>${invoice.notes ? `<section class="notes"><h2>Notes / terms</h2><p>${escapeHtml(invoice.notes)}</p></section>` : ''}<p class="notes">Thank you for your business.</p><script>window.onload=()=>window.print()<\/script></body></html>`);
+        page.document.close();
+      }
+      function renderReports() {
+        const counts = Object.keys(modules).map(key => metric(modules[key].title, data[key].length, '↗', '#e7f0e8')).join('');
+        const total = data.payments.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        content.innerHTML = `${heading('ANALYTICS', 'Reports & analytics', 'A summary of activity across your subscription workspace.')}
+          <div class="metrics">${counts}</div><div class="split"><section class="panel"><div class="panel-head"><h2>Payment summary</h2></div><div class="panel-body"><div class="summary-total">${money(total)}</div><div class="muted-small">Total recorded payments</div></div></section><section class="panel"><div class="panel-head"><h2>Workspace data</h2></div><div class="panel-body"><p class="subtitle">All records are stored in this browser.</p><button class="button secondary" type="button" id="download-report">↓ Export records</button></div></section></div>`;
+        document.getElementById('download-report').addEventListener('click', exportData);
+      }
+      function renderPortal() {
+        const tables = [
+          ['Customers', 'customers', ['name', 'email', 'company']],
+          ['Subscriptions', 'subscriptions', ['customer', 'plan', 'renewal_date', 'amount', 'status']],
+          ['Invoices', 'invoices', ['customer', 'invoice_date', 'due_date', 'amount', 'status']]
+        ];
+        content.innerHTML = `${heading('WORKSPACE / CUSTOMER VIEW', 'Customer portal', 'Customer account, subscription, and invoice overview.')}${tables.map(([title, key, fields]) => simpleTable(title, key, fields, data[key], `No ${title.toLowerCase()} available.`)).join('')}`;
+      }
+      function render() {
+        const valid = ['dashboard', ...Object.keys(modules), 'reports', 'customer-portal'];
+        if (!valid.includes(currentView)) currentView = 'dashboard';
+        document.querySelectorAll('[data-view]').forEach(link => link.classList.toggle('active', link.dataset.view === currentView));
+        const title = modules[currentView]?.title || ({ dashboard: 'Dashboard', reports: 'Reports', 'customer-portal': 'Customer Portal' }[currentView]);
+        document.getElementById('top-title').textContent = title;
+        if (currentView === 'dashboard') renderDashboard();
+        else if (currentView === 'invoices') renderInvoices();
+        else if (modules[currentView]) renderModule(currentView);
+        else if (currentView === 'reports') renderReports();
+        else renderPortal();
+      }
+      function exportData() {
+        const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ...data }, null, 2)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'last-call-export.json';
+        link.click();
+        URL.revokeObjectURL(link.href);
+        notify('Workspace export downloaded.');
+      }
+      document.querySelector('.nav-list').addEventListener('click', event => {
+        const link = event.target.closest('[data-view]');
+        if (!link) return;
+        currentView = link.dataset.view;
+        if (location.hash !== `#${currentView}`) location.hash = currentView;
+        render();
+      });
+      window.addEventListener('hashchange', () => { currentView = location.hash.slice(1) || 'dashboard'; render(); });
+      content.addEventListener('click', event => {
+        const printButton = event.target.closest('[data-print-invoice]');
+        if (printButton) {
+          const invoice = data.invoices.find(item => String(item.id) === printButton.dataset.printInvoice);
+          if (invoice) printInvoice(invoice);
+          return;
+        }
+        const button = event.target.closest('[data-delete]');
+        if (!button) return;
+        if (!confirm('Delete this record? This cannot be undone.')) return;
+        const key = button.dataset.delete;
+        data[key] = data[key].filter(record => String(record.id) !== button.dataset.id);
+        save(); render(); notify('Record deleted.');
+      });
+      document.getElementById('export-button').addEventListener('click', exportData);
+      document.getElementById('today').textContent = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date());
+      document.getElementById('user-name').textContent = localStorage.getItem('lastcall-user-name') || 'Local workspace';
+      document.getElementById('avatar').textContent = (document.getElementById('user-name').textContent.match(/\b\w/g) || ['L', 'C']).slice(0, 2).join('').toUpperCase();
+      render();
+    })();
+  </script>
 </body>
 </html>
