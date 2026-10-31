@@ -1,1270 +1,1680 @@
+/* =========================================
+   BRIGHTLOOP - MAIN JAVASCRIPT (full file)
+   Replaces script.js completely. Do NOT also paste enhance.js.
+========================================= */
 
-// ========================================
-// BRIGHTLOOP SUBSCRIPTION MANAGEMENT SYSTEM
-// Front-end demonstration only
-// ========================================
+const $ = (id) => document.getElementById(id);
 
-const USERS_KEY = "brightloop_demo_users";
-const DATA_KEY = "brightloop_v2";
-
-let selectedLoginRole = "Admin";
 let currentUser = null;
-let currentRole = null;
 let currentPage = "dashboard";
+let toastTimer;
 
-// ========================================
-// INITIAL DATA
-// ========================================
+/* =========================================
+   ICONS
+========================================= */
 
-function getUsers() {
-  try {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY));
-    return Array.isArray(users) ? users : [];
-  } catch {
-    return [];
-  }
+const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+
+const ICON = {
+    home: svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
+    box: svg('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/>'),
+    diamond: svg('<path d="M12 3l9 9-9 9-9-9z"/>'),
+    user: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'),
+    loop: svg('<path d="M20 11a8 8 0 10-2 6"/><path d="M20 4v7h-7"/>'),
+    receipt: svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+    rupee: svg('<path d="M7 5h10M7 9h10M7 5c5 0 7 2 7 4s-2 4-7 4l7 6"/>'),
+    chart: svg('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>'),
+    check: svg('<path d="M5 12l5 5 9-10"/>')
+};
+
+/* =========================================
+   API AND UTILITIES
+========================================= */
+
+/* Invoice maths shared by the preview data and the screens */
+const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+function calcInvoice(inv) {
+    const items = inv.items && inv.items.length
+        ? inv.items
+        : [{ description: "Subscription", qty: 1, unit_price: Number(inv.amount || 0) }];
+
+    const subtotal = round2(items.reduce((sum, i) => sum + Number(i.qty) * Number(i.unit_price), 0));
+    const discountPct = Number(inv.discount_percent || 0);
+    const gstPct = Number(inv.gst_percent || 0);
+    const discount = round2(subtotal * discountPct / 100);
+    const taxable = round2(subtotal - discount);
+    const tax = round2(taxable * gstPct / 100);
+    const cgst = round2(tax / 2);
+    const sgst = round2(tax - cgst);
+
+    return { items, subtotal, discountPct, discount, taxable, gstPct, tax, cgst, sgst, total: round2(taxable + tax) };
 }
 
-function saveUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+/* UI-ONLY MODE: this fake backend lives in the browser.
+   Data is saved in localStorage so your changes survive a refresh. */
+const DEMO_KEY = "brightloop-demo-db-v2";
+
+const dayOffset = (n = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+};
+
+function seedInvoices() {
+    return [
+        { id: 1, user_id: 2, issue_date: dayOffset(-22), due_date: dayOffset(-15), status: "paid", discount_percent: 0, gst_percent: 18,
+          items: [{ description: "Design Monthly (monthly plan)", qty: 1, unit_price: 999 }] },
+        { id: 2, user_id: 2, issue_date: dayOffset(-2), due_date: dayOffset(5), status: "pending", discount_percent: 5, gst_percent: 18,
+          items: [{ description: "Design Monthly (monthly plan)", qty: 1, unit_price: 999 },
+                  { description: "Priority support add-on", qty: 1, unit_price: 299 }] },
+        { id: 3, user_id: 3, issue_date: dayOffset(-62), due_date: dayOffset(-55), status: "paid", discount_percent: 10, gst_percent: 18,
+          items: [{ description: "Design Yearly (yearly plan)", qty: 1, unit_price: 9999 }] },
+        { id: 4, user_id: 4, issue_date: dayOffset(-5), due_date: dayOffset(2), status: "pending", discount_percent: 0, gst_percent: 18,
+          items: [{ description: "Storage Quarterly (quarterly plan)", qty: 1, unit_price: 799 }] }
+    ];
 }
 
-function createDemoAccounts() {
-  const users = getUsers();
-  const demoAdmin = users.find(user =>
-    user.id === "admin-1" ||
-    (typeof user.email === "string" &&
-      user.email.toLowerCase() === "brightloop@gmail.com" &&
-      user.role === "Admin")
-  );
-  const adminAccount = {
-    id: "admin-1",
-    name: "Brightloop Admin",
-    email: "brightloop@gmail.com",
-    password: "brightloop",
-    role: "Admin"
-  };
-
-  if (demoAdmin) {
-    Object.assign(demoAdmin, adminAccount);
-  } else {
-    users.push(adminAccount);
-  }
-
-  saveUsers(users);
+function seedPayments() {
+    const invoices = seedInvoices();
+    const total = (id) => calcInvoice(invoices.find(i => i.id === id)).total;
+    return [
+        { id: 1, invoice_id: 1, amount: total(1), payment_date: dayOffset(-16), status: "paid" },
+        { id: 2, invoice_id: 3, amount: total(3), payment_date: dayOffset(-56), status: "paid" }
+    ];
 }
 
-function getData() {
-  try {
-    const data = JSON.parse(localStorage.getItem(DATA_KEY));
-
-    return data || {
-      products: [],
-      plans: [],
-      customers: [],
-      subscriptions: [],
-      invoices: [],
-      payments: []
-    };
-  } catch {
+function seedDb() {
     return {
-      products: [],
-      plans: [],
-      customers: [],
-      subscriptions: [],
-      invoices: [],
-      payments: []
+        nextId: 100,
+        users: [
+            { id: 1, name: "Admin", email: "admin@brightloop.com", password: "admin123", role: "admin", created_at: dayOffset(-120) },
+            { id: 2, name: "Jaseera", email: "customer@brightloop.com", password: "customer123", role: "customer", created_at: dayOffset(-30) },
+            { id: 3, name: "Arun Kumar", email: "arun@example.com", password: "demo", role: "customer", created_at: dayOffset(-45) },
+            { id: 4, name: "Meera Nair", email: "meera@example.com", password: "demo", role: "customer", created_at: dayOffset(-12) }
+        ],
+        products: [
+            { id: 1, name: "Design Suite", type: "Software", cost_price: 400, sales_price: 999, description: "" },
+            { id: 2, name: "Cloud Storage", type: "Service", cost_price: 100, sales_price: 299, description: "" },
+            { id: 3, name: "Analytics Pro", type: "Software", cost_price: 600, sales_price: 1499, description: "" }
+        ],
+        plans: [
+            { id: 1, name: "Design Monthly", product_id: 1, price: 999, frequency: "monthly", description: "" },
+            { id: 2, name: "Design Yearly", product_id: 1, price: 9999, frequency: "yearly", description: "" },
+            { id: 3, name: "Storage Quarterly", product_id: 2, price: 799, frequency: "quarterly", description: "" },
+            { id: 4, name: "Analytics Monthly", product_id: 3, price: 1499, frequency: "monthly", description: "" }
+        ],
+        subscriptions: [
+            { id: 1, user_id: 2, plan_id: 1, start_date: dayOffset(-20), end_date: dayOffset(10), status: "active" },
+            { id: 2, user_id: 3, plan_id: 2, start_date: dayOffset(-60), end_date: dayOffset(305), status: "active" },
+            { id: 3, user_id: 4, plan_id: 3, start_date: dayOffset(-5), end_date: dayOffset(85), status: "pending" },
+            { id: 4, user_id: 3, plan_id: 4, start_date: dayOffset(-90), end_date: dayOffset(-60), status: "cancelled" }
+        ],
+        invoices: seedInvoices(),
+        payments: seedPayments()
     };
-  }
 }
 
-function saveData(data) {
-  localStorage.setItem(DATA_KEY, JSON.stringify(data));
+function loadDb() {
+    try {
+        const saved = localStorage.getItem(DEMO_KEY);
+        if (saved) return JSON.parse(saved);
+    } catch {}
+    return seedDb();
 }
 
-function initializeApp() {
-  createDemoAccounts();
-  bindEvents();
-  selectLoginRole("Admin", document.getElementById("admin-option"));
+function saveDb(db) {
+    try { localStorage.setItem(DEMO_KEY, JSON.stringify(db)); } catch {}
 }
 
-// ========================================
-// EVENT LISTENERS
-// ========================================
+async function api(url, options = {}) {
+    await new Promise(resolve => setTimeout(resolve, 250));
 
-function bindEvents() {
-  document.getElementById("login-form")
-    .addEventListener("submit", handleLogin);
+    const db = loadDb();
+    const method = (options.method || "GET").toUpperCase();
+    const body = options.body || {};
+    const fail = (message) => { throw new Error(message); };
 
-  document.getElementById("register-form")
-    .addEventListener("submit", handleRegistration);
+    const me = db.users.find(u => u.id === Number(sessionStorage.getItem("demo-user")));
+    const admin = me?.role === "admin";
+    const route = url.match(/^\/([a-z-]+)(?:\/(\d+))?(?:\/(pay))?$/);
+    if (!route) fail("Unknown request.");
+    const [, name, rawId, action] = route;
+    const id = Number(rawId);
 
-  document.getElementById("logout-btn")
-    .addEventListener("click", logout);
+    const planOf = (planId) => db.plans.find(p => p.id === planId);
+    const userOf = (userId) => db.users.find(u => u.id === userId);
+    const addDays = (freq) => ({ monthly: 30, quarterly: 90, yearly: 365 }[freq] || 30);
 
-  document.getElementById("modal-close")
-    .addEventListener("click", closeModal);
+    if (name === "login" && method === "POST") {
+        const user = db.users.find(u => u.email.toLowerCase() === String(body.email).toLowerCase());
+        if (!user || user.password !== body.password) fail("Incorrect email or password.");
+        sessionStorage.setItem("demo-user", user.id);
+        return { user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+    }
+
+    if (name === "register" && method === "POST") {
+        if (db.users.some(u => u.email.toLowerCase() === String(body.email).toLowerCase())) {
+            fail("An account with this email already exists.");
+        }
+        db.users.push({ id: db.nextId++, name: body.name, email: body.email, password: body.password, role: "customer", created_at: dayOffset(0) });
+        saveDb(db);
+        return { ok: true };
+    }
+
+    if (name === "logout") { sessionStorage.removeItem("demo-user"); return { ok: true }; }
+
+    if (!me) fail("Please sign in.");
+    if (name === "me") return { user: { id: me.id, name: me.name, email: me.email, role: me.role } };
+
+    const mine = (list) => admin ? list : list.filter(x => x.user_id === me.id);
+
+    switch (name) {
+        case "stats":
+            return {
+                total_revenue: db.payments.reduce((sum, p) => sum + p.amount, 0),
+                active_subscriptions: db.subscriptions.filter(s => s.status === "active").length,
+                total_customers: db.users.filter(u => u.role === "customer").length,
+                total_products: db.products.length
+            };
+
+        case "customer-stats": {
+            const subs = mine(db.subscriptions);
+            const invs = mine(db.invoices);
+            return {
+                total_subscriptions: subs.length,
+                active_subscriptions: subs.filter(s => s.status === "active").length,
+                total_paid: invs.filter(i => i.status === "paid").reduce((sum, i) => sum + calcInvoice(i).total, 0),
+                pending_invoices: invs.filter(i => i.status !== "paid").length
+            };
+        }
+
+        case "products":
+            if (method === "POST") { db.products.push({ id: db.nextId++, ...body }); saveDb(db); return { ok: true }; }
+            if (method === "DELETE") {
+                db.products = db.products.filter(p => p.id !== id);
+                db.plans = db.plans.filter(p => p.product_id !== id);
+                saveDb(db);
+                return { ok: true };
+            }
+            return db.products;
+
+        case "plans":
+            if (method === "POST") { db.plans.push({ id: db.nextId++, ...body }); saveDb(db); return { ok: true }; }
+            if (method === "DELETE") { db.plans = db.plans.filter(p => p.id !== id); saveDb(db); return { ok: true }; }
+            return db.plans.map(p => ({ ...p, product_name: db.products.find(x => x.id === p.product_id)?.name }));
+
+        case "customers":
+            return db.users.filter(u => u.role === "customer");
+
+        case "subscriptions":
+            if (method === "POST") {
+                const plan = planOf(body.plan_id);
+                if (!plan) fail("Plan not found.");
+                const subId = db.nextId++;
+                db.subscriptions.push({ id: subId, user_id: me.id, plan_id: plan.id, start_date: dayOffset(0), end_date: dayOffset(addDays(plan.frequency)), status: "active" });
+                db.invoices.push({ id: db.nextId++, user_id: me.id, issue_date: dayOffset(0), due_date: dayOffset(7), status: "pending", discount_percent: 0, gst_percent: 18, items: [{ description: plan.name + " (" + plan.frequency + " plan)", qty: 1, unit_price: plan.price }] });
+                saveDb(db);
+                return { ok: true };
+            }
+            return mine(db.subscriptions).map(s => ({
+                ...s, plan_name: planOf(s.plan_id)?.name, customer_name: userOf(s.user_id)?.name
+            })).reverse();
+
+        case "invoices": {
+            const invoiceView = (i) => ({
+                ...i,
+                invoice_number: "INV-" + String(i.id).padStart(4, "0"),
+                customer_name: userOf(i.user_id)?.name,
+                customer_email: userOf(i.user_id)?.email,
+                amount: calcInvoice(i).total
+            });
+            const find = () => {
+                const invoice = db.invoices.find(i => i.id === id);
+                if (!invoice || (!admin && invoice.user_id !== me.id)) fail("Invoice not found.");
+                return invoice;
+            };
+
+            if (action === "pay") {
+                const invoice = find();
+                if (invoice.status === "paid") fail("This invoice is already paid.");
+                invoice.status = "paid";
+                db.payments.push({ id: db.nextId++, invoice_id: invoice.id, amount: calcInvoice(invoice).total, payment_date: dayOffset(0), status: "paid" });
+                saveDb(db);
+                return { ok: true };
+            }
+
+            if (method === "POST") {
+                if (!admin) fail("Only admins can create invoices.");
+                db.invoices.push({
+                    id: db.nextId++, user_id: Number(body.user_id), issue_date: dayOffset(0), due_date: dayOffset(14),
+                    status: "pending", discount_percent: Number(body.discount_percent || 0), gst_percent: Number(body.gst_percent || 0),
+                    items: [{ description: body.description, qty: Number(body.quantity), unit_price: Number(body.unit_price) }]
+                });
+                saveDb(db);
+                return { ok: true };
+            }
+
+            if (rawId) {
+                const invoice = find();
+                if (method === "PATCH") {
+                    if (!admin) fail("Only admins can edit invoices.");
+                    if (invoice.status === "paid") fail("Paid invoices can't be edited.");
+                    invoice.discount_percent = Math.min(100, Math.max(0, Number(body.discount_percent || 0)));
+                    invoice.gst_percent = Math.min(100, Math.max(0, Number(body.gst_percent || 0)));
+                    saveDb(db);
+                    return { ok: true };
+                }
+                return invoiceView(invoice);
+            }
+
+            return mine(db.invoices).map(invoiceView).reverse();
+        }
+
+        case "payments":
+            return db.payments.map(p => ({
+                ...p, invoice_number: "INV-" + String(p.invoice_id).padStart(4, "0")
+            })).reverse();
+    }
+
+    fail("Unknown request.");
 }
 
-// ========================================
-// LOGIN ROLE SELECTION
-// ========================================
-
-function selectLoginRole(role, button) {
-  selectedLoginRole = role;
-
-  document.querySelectorAll(".login-option").forEach(option => {
-    option.classList.remove("active");
-  });
-
-  if (button) {
-    button.classList.add("active");
-  }
-
-  const registerLink = document.getElementById(
-    "customer-register-link"
-  );
-
-  registerLink.hidden = role !== "Customer";
-
-  document.getElementById("login-error").textContent = "";
+function money(value) {
+    return "₹" + Number(value || 0).toLocaleString("en-IN", {
+        maximumFractionDigits: 2
+    });
 }
 
-// ========================================
-// LOGIN / REGISTER PANELS
-// ========================================
-
-function showAuthPanel(panel) {
-  document.getElementById("login-panel").hidden =
-    panel !== "login";
-
-  document.getElementById("register-panel").hidden =
-    panel !== "register";
-
-  document.getElementById("login-error").textContent = "";
-  document.getElementById("register-error").textContent = "";
-
-  if (panel === "register") {
-    selectedLoginRole = "Customer";
-
-    document.getElementById("admin-option")
-      .classList.remove("active");
-
-    document.getElementById("customer-option")
-      .classList.add("active");
-  }
+function safe(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    })[char]);
 }
 
-// ========================================
-// LOGIN
-// ========================================
-
-function handleLogin(event) {
-  event.preventDefault();
-
-  const email = document.getElementById("login-email")
-    .value.trim().toLowerCase();
-
-  const password = document.getElementById("login-password")
-    .value;
-
-  const error = document.getElementById("login-error");
-
-  const users = getUsers();
-
-  const user = users.find(account =>
-    account.email.toLowerCase() === email &&
-    account.password === password &&
-    account.role === selectedLoginRole
-  );
-
-  if (!user) {
-    error.textContent =
-      "Invalid email, password or account type.";
-    return;
-  }
-
-  currentUser = user;
-  currentRole = user.role;
-
-  document.getElementById("login-form").reset();
-
-  showApplication();
+function money2(value) {
+    return "₹" + Number(value || 0).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
-// ========================================
-// CUSTOMER REGISTRATION
-// ========================================
+function formatDate(value) {
+    if (!value) return "—";
 
-function handleRegistration(event) {
-  event.preventDefault();
+    const date = new Date(value);
+    if (isNaN(date)) return safe(value);
 
-  const name = document.getElementById("register-name")
-    .value.trim();
-
-  const email = document.getElementById("register-email")
-    .value.trim().toLowerCase();
-
-  const password = document.getElementById("register-password")
-    .value;
-
-  const confirmPassword = document.getElementById("register-confirm")
-    .value;
-
-  const error = document.getElementById("register-error");
-
-  error.textContent = "";
-
-  if (!name || !email || !password || !confirmPassword) {
-    error.textContent = "Please fill in all fields.";
-    return;
-  }
-
-  if (password.length <= 8) {
-    error.textContent =
-      "Password must contain more than 8 characters.";
-    return;
-  }
-
-  if (!/[A-Z]/.test(password)) {
-    error.textContent =
-      "Password must contain an uppercase letter.";
-    return;
-  }
-
-  if (!/[a-z]/.test(password)) {
-    error.textContent =
-      "Password must contain a lowercase letter.";
-    return;
-  }
-
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    error.textContent =
-      "Password must contain a special character.";
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    error.textContent = "Passwords do not match.";
-    return;
-  }
-
-  const users = getUsers();
-
-  if (users.some(user => user.email.toLowerCase() === email)) {
-    error.textContent =
-      "An account with this email already exists.";
-    return;
-  }
-
-  const newUser = {
-    id: "customer-" + Date.now(),
-    name,
-    email,
-    password,
-    role: "Customer"
-  };
-
-  users.push(newUser);
-  saveUsers(users);
-
-  const data = getData();
-
-  data.customers.push({
-    id: newUser.id,
-    name,
-    email,
-    createdAt: new Date().toISOString()
-  });
-
-  saveData(data);
-
-  document.getElementById("register-form").reset();
-
-  showAuthPanel("login");
-  selectLoginRole(
-    "Customer",
-    document.getElementById("customer-option")
-  );
-
-  document.getElementById("login-email").value = email;
-
-  showToast("Registration successful. Please log in.");
+    return date.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    });
 }
 
-// ========================================
-// SHOW APPLICATION
-// ========================================
+function toast(message, type = "success") {
+    const element = $("toast");
+    element.textContent = message;
+    element.classList.toggle("error", type === "error");
+    element.classList.add("show");
 
-function showApplication() {
-  document.getElementById("auth-page").hidden = true;
-  document.getElementById("main-app").hidden = false;
-
-  document.getElementById("logged-in-user").innerHTML = `
-    <strong>${escapeHTML(currentUser.name)}</strong><br>
-    ${escapeHTML(currentUser.email)}<br>
-    <small>${escapeHTML(currentRole)}</small>
-  `;
-
-  buildNavigation();
-  showPage("dashboard");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        element.classList.remove("show");
+    }, 2800);
 }
 
-// ========================================
-// NAVIGATION
-// ========================================
+function showError(error) {
+    console.error(error);
+    toast(error.message || "Something went wrong. Please try again.", "error");
+}
+
+function isAdmin() {
+    return currentUser?.role === "admin";
+}
+
+function getArray(data, key) {
+    if (Array.isArray(data)) return data;
+    return data?.[key] || [];
+}
+
+function getValue(object, ...keys) {
+    for (const key of keys) {
+        if (object?.[key] !== undefined && object[key] !== null) {
+            return object[key];
+        }
+    }
+    return 0;
+}
+
+/* =========================================
+   AUTHENTICATION
+========================================= */
+
+let authRole = "customer";
+
+const DEMO_LOGIN = {
+    admin: { email: "admin@brightloop.com", password: "admin123" },
+    customer: { email: "customer@brightloop.com", password: "customer123" }
+};
+
+const ROLE_TEXT = {
+    customer: {
+        title: "Customer sign in",
+        description: "View your plans, invoices and payments."
+    },
+    admin: {
+        title: "Admin sign in",
+        description: "Manage products, plans, customers and billing."
+    }
+};
+
+function setRole(role) {
+    authRole = role;
+
+    document.querySelectorAll(".role-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.role === role);
+    });
+    document.querySelectorAll(".role-card").forEach(card => {
+        card.classList.toggle("active", card.dataset.role === role);
+    });
+
+    /* Only customers can create their own account */
+    $("auth-switch").classList.toggle("hidden", role === "admin");
+    showLogin();
+
+    /* Preview mode: fill in the demo login for this role */
+    $("login-email").value = DEMO_LOGIN[role].email;
+    $("login-password").value = DEMO_LOGIN[role].password;
+}
+
+function showLogin() {
+    $("login-form").classList.remove("hidden");
+    $("register-form").classList.add("hidden");
+
+    $("auth-title").textContent = ROLE_TEXT[authRole].title;
+    $("auth-eyebrow").textContent = "Welcome back";
+    $("auth-description").textContent = ROLE_TEXT[authRole].description;
+
+    $("auth-switch-text").textContent = "Don't have an account?";
+    $("auth-switch-button").textContent = "Create account";
+    $("auth-error").textContent = "";
+}
+
+function showRegister() {
+    $("login-form").classList.add("hidden");
+    $("register-form").classList.remove("hidden");
+
+    $("auth-title").textContent = "Create your customer account";
+    $("auth-eyebrow").textContent = "Get started";
+    $("auth-description").textContent =
+        "Join Brightloop and manage your subscriptions.";
+
+    $("auth-switch-text").textContent = "Already have an account?";
+    $("auth-switch-button").textContent = "Sign in";
+    $("auth-error").textContent = "";
+}
+
+document.querySelectorAll(".role-tab").forEach(tab => {
+    tab.addEventListener("click", () => setRole(tab.dataset.role));
+});
+
+$("auth-switch-button").addEventListener("click", () => {
+    if ($("login-form").classList.contains("hidden")) {
+        showLogin();
+    } else {
+        showRegister();
+    }
+});
+
+$("login-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    try {
+        const result = await api("/login", {
+            method: "POST",
+            body: {
+                email: $("login-email").value.trim(),
+                password: $("login-password").value
+            }
+        });
+
+        const user = result.user || result;
+        const isAdminAccount = user.role === "admin";
+
+        /* Wrong tab for this account: sign out again and explain */
+        if ((authRole === "admin") !== isAdminAccount) {
+            try { await api("/logout", { method: "POST" }); } catch {}
+            $("auth-error").textContent = isAdminAccount
+                ? "This is an admin account. Choose the Admin tab to sign in."
+                : "This is a customer account. Choose the Customer tab to sign in.";
+            return;
+        }
+
+        currentUser = user;
+        await startApp();
+    } catch (error) {
+        $("auth-error").textContent = error.message;
+    }
+});
+
+$("register-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    try {
+        await api("/register", {
+            method: "POST",
+            body: {
+                name: $("register-name").value.trim(),
+                email: $("register-email").value.trim(),
+                password: $("register-password").value
+            }
+        });
+
+        toast("Account created! Please sign in.");
+        showLogin();
+    } catch (error) {
+        $("auth-error").textContent = error.message;
+    }
+});
+
+$("logout-button").addEventListener("click", async () => {
+    try {
+        await api("/logout", { method: "POST" });
+    } catch (error) {
+        console.error(error);
+    }
+
+    currentUser = null;
+    currentPage = "dashboard";
+    $("app").classList.add("hidden");
+    $("auth-page").classList.remove("hidden");
+    setRole("customer");
+});
+
+/* Preview mode: jump between the admin and customer workspaces */
+$("switch-view-button").addEventListener("click", async () => {
+    const target = isAdmin() ? "customer" : "admin";
+
+    try {
+        await api("/logout", { method: "POST" });
+        const result = await api("/login", { method: "POST", body: DEMO_LOGIN[target] });
+        currentUser = result.user || result;
+        currentPage = "dashboard";
+        authRole = target;
+        await startApp();
+    } catch (error) {
+        showError(error);
+    }
+});
+
+/* =========================================
+   START APPLICATION
+========================================= */
+
+async function startApp() {
+    $("auth-page").classList.add("hidden");
+    $("app").classList.remove("hidden");
+
+    const name = currentUser.name || currentUser.email || "User";
+    const initial = name.charAt(0).toUpperCase();
+
+    $("logged-user").textContent = name;
+    $("user-role").textContent = isAdmin() ? "Administrator" : "Customer";
+    $("user-avatar").textContent = initial;
+    $("switch-view-button").textContent =
+        isAdmin() ? "Switch to customer view" : "Switch to admin view";
+
+    $("current-date").textContent =
+        new Date().toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "numeric"
+        });
+
+    buildNavigation();
+    await navigate("dashboard");
+}
+
+/* =========================================
+   NAVIGATION
+========================================= */
+
+const adminPages = [
+    { id: "dashboard", name: "Overview", icon: ICON.home },
+    { id: "products", name: "Products", icon: ICON.box },
+    { id: "plans", name: "Plans", icon: ICON.diamond },
+    { id: "customers", name: "Customers", icon: ICON.user },
+    { id: "subscriptions", name: "Subscriptions", icon: ICON.loop },
+    { id: "invoices", name: "Invoices", icon: ICON.receipt },
+    { id: "payments", name: "Payments", icon: ICON.rupee },
+    { id: "reports", name: "Reports", icon: ICON.chart }
+];
+
+const customerPages = [
+    { id: "dashboard", name: "Overview", icon: ICON.home },
+    { id: "browse", name: "Explore Plans", icon: ICON.diamond },
+    { id: "subscriptions", name: "My Subscriptions", icon: ICON.loop },
+    { id: "invoices", name: "My Invoices", icon: ICON.receipt }
+];
 
 function buildNavigation() {
-  const navigation = document.getElementById("navigation");
+    const pages = isAdmin() ? adminPages : customerPages;
 
-  const adminItems = [
-    ["dashboard", "📊", "Dashboard"],
-    ["products", "📦", "Products"],
-    ["plans", "📋", "Plans"],
-    ["customers", "👥", "Customers"],
-    ["subscriptions", "🔄", "Subscriptions"],
-    ["invoices", "🧾", "Invoices"],
-    ["payments", "💳", "Payments"]
-  ];
+    $("navigation").innerHTML = pages.map(page => `
+        <button class="nav-item ${page.id === currentPage ? "active" : ""}"
+                data-page="${page.id}">
+            <span class="nav-icon">${page.icon}</span>
+            <span>${page.name}</span>
+        </button>
+    `).join("");
 
-  const customerItems = [
-    ["dashboard", "📊", "Dashboard"],
-    ["subscriptions", "🔄", "My Subscriptions"],
-    ["invoices", "🧾", "My Invoices"]
-  ];
-
-  const items = currentRole === "Admin"
-    ? adminItems
-    : customerItems;
-
-  navigation.innerHTML = items.map(item => `
-    <button class="nav-item"
-      data-page="${item[0]}"
-      onclick="showPage('${item[0]}')">
-      <span>${item[1]}</span>
-      ${item[2]}
-    </button>
-  `).join("");
+    document.querySelectorAll(".nav-item").forEach(button => {
+        button.addEventListener("click", () => {
+            navigate(button.dataset.page);
+        });
+    });
 }
 
-function showPage(page) {
-  const allowedPages = currentRole === "Admin"
-    ? [
-        "dashboard",
-        "products",
-        "plans",
-        "customers",
-        "subscriptions",
-        "invoices",
-        "payments"
-      ]
-    : [
-        "dashboard",
-        "subscriptions",
-        "invoices"
-      ];
+async function navigate(page) {
+    const pages = isAdmin() ? adminPages : customerPages;
 
-  if (!allowedPages.includes(page)) {
-    showToast("You do not have permission to open this page.");
-    return;
-  }
+    if (!pages.some(item => item.id === page)) return;
 
-  currentPage = page;
+    currentPage = page;
+    buildNavigation();
 
-  document.querySelectorAll(".nav-item").forEach(button => {
-    button.classList.toggle(
-      "active",
-      button.dataset.page === page
+    const selected = pages.find(item => item.id === page);
+
+    $("breadcrumb").textContent = "Workspace / " + selected.name;
+    $("page-heading").textContent = selected.name;
+    $("page-content").innerHTML =
+        `<div class="loading-state"><div class="skeleton"><i></i><i></i><i></i></div></div>`;
+
+    try {
+        switch (page) {
+            case "dashboard":
+                await renderDashboard();
+                break;
+            case "products":
+                await renderProducts();
+                break;
+            case "plans":
+                await renderPlans();
+                break;
+            case "customers":
+                await renderCustomers();
+                break;
+            case "subscriptions":
+                await renderSubscriptions();
+                break;
+            case "browse":
+                await renderBrowsePlans();
+                break;
+            case "invoices":
+                await renderInvoices();
+                break;
+            case "payments":
+                await renderPayments();
+                break;
+            case "reports":
+                await renderReports();
+                break;
+        }
+    } catch (error) {
+        console.error(error);
+        $("page-content").innerHTML = `
+            <div class="empty-state">
+                <h3>Unable to load this page</h3>
+                <p>${safe(error.message)}</p>
+                <button class="action-button" onclick="navigate('${page}')">
+                    Try again
+                </button>
+            </div>`;
+    }
+}
+
+/* =========================================
+   DASHBOARD
+========================================= */
+
+function statusChart(subscriptions) {
+    const counts = { active: 0, pending: 0, cancelled: 0 };
+
+    subscriptions.forEach(item => {
+        const key = String(item.status || "pending").toLowerCase();
+        counts[key] = (counts[key] || 0) + 1;
+    });
+
+    const max = Math.max(1, ...Object.values(counts));
+
+    return `
+        <div class="status-chart">
+            ${Object.entries(counts).map(([key, count]) => `
+                <div class="status-row">
+                    <span style="text-transform:capitalize">${safe(key)}</span>
+                    <div class="track">
+                        <div class="fill ${safe(key)}" style="width:${(count / max) * 100}%"></div>
+                    </div>
+                    <b>${count}</b>
+                </div>
+            `).join("")}
+        </div>`;
+}
+
+async function renderDashboard() {
+    if (isAdmin()) {
+        const [statsData, subscriptionData] = await Promise.all([
+            api("/stats"),
+            api("/subscriptions")
+        ]);
+
+        const stats = statsData.stats || statsData;
+        const subscriptions = getArray(subscriptionData, "subscriptions");
+
+        const revenue = getValue(stats,
+            "total_revenue", "revenue", "total_sales");
+
+        const active = getValue(stats,
+            "active_subscriptions", "active");
+
+        const customers = getValue(stats,
+            "total_customers", "customers");
+
+        const products = getValue(stats,
+            "total_products", "products");
+
+        $("page-content").innerHTML = `
+            <div class="welcome-banner">
+                <div>
+                    <h2>Welcome back, ${safe(currentUser.name || "Admin")}</h2>
+                    <p>Here's what's happening with your business today.</p>
+                </div>
+                <div class="banner-tag">Admin workspace</div>
+            </div>
+
+            <div class="stats-grid">
+                ${statCard("rupee", "Total revenue", money(revenue))}
+                ${statCard("loop", "Active subscriptions", active)}
+                ${statCard("user", "Total customers", customers)}
+                ${statCard("box", "Total products", products)}
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Subscriptions by status</h3>
+                            <p>How many customers are in each stage</p>
+                        </div>
+                    </div>
+                    ${statusChart(subscriptions)}
+                </div>
+
+                <div class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Quick actions</h3>
+                            <p>Manage your workspace</p>
+                        </div>
+                    </div>
+                    <div class="activity-list">
+                        ${quickAction("box", "Add a product", "Create a new product", "products")}
+                        ${quickAction("diamond", "Create a plan", "Set up subscription pricing", "plans")}
+                        ${quickAction("user", "View customers", "Manage customer accounts", "customers")}
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Recent subscriptions</h3>
+                        <p>Your latest subscription activity</p>
+                    </div>
+                    <button class="panel-link" onclick="navigate('subscriptions')">
+                        View all →
+                    </button>
+                </div>
+                ${subscriptionTable(subscriptions.slice(0, 5))}
+            </div>
+        `;
+    } else {
+        const [statsData, subscriptionData] = await Promise.all([
+            api("/customer-stats"),
+            api("/subscriptions")
+        ]);
+
+        const stats = statsData.stats || statsData;
+        const subscriptions = getArray(subscriptionData, "subscriptions");
+
+        $("page-content").innerHTML = `
+            <div class="welcome-banner">
+                <div>
+                    <h2>Hey, ${safe(currentUser.name || "there")}!</h2>
+                    <p>Your subscriptions, all in one place.</p>
+                </div>
+                <div class="banner-tag">Customer workspace</div>
+            </div>
+
+            <div class="stats-grid">
+                ${statCard("loop", "My subscriptions",
+                    getValue(stats, "total_subscriptions", "subscriptions"))}
+                ${statCard("check", "Active plans",
+                    getValue(stats, "active_subscriptions", "active"))}
+                ${statCard("rupee", "Total paid",
+                    money(getValue(stats, "total_paid", "paid")))}
+                ${statCard("receipt", "Pending invoices",
+                    getValue(stats, "pending_invoices", "pending"))}
+            </div>
+
+            <div class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>My recent subscriptions</h3>
+                        <p>Stay up to date with your plans</p>
+                    </div>
+                    <button class="panel-link" onclick="navigate('browse')">
+                        Explore plans →
+                    </button>
+                </div>
+                ${subscriptionTable(subscriptions.slice(0, 5))}
+            </div>
+        `;
+    }
+}
+
+function statCard(icon, label, value) {
+    return `
+        <div class="stat-card">
+            <div class="stat-top">
+                <div class="stat-icon">${ICON[icon] || ""}</div>
+            </div>
+            <div class="stat-label">${safe(label)}</div>
+            <div class="stat-value">${safe(value)}</div>
+        </div>`;
+}
+
+function quickAction(icon, title, description, page) {
+    return `
+        <div class="activity-item" style="cursor:pointer"
+             onclick="navigate('${page}')">
+            <div class="activity-icon">${ICON[icon] || ""}</div>
+            <div class="activity-text">
+                <strong>${title}</strong>
+                <small>${description}</small>
+            </div>
+            <span>→</span>
+        </div>`;
+}
+
+/* =========================================
+   TABLE HELPERS
+========================================= */
+
+function statusBadge(status) {
+    const value = String(status || "pending").toLowerCase();
+    const safeClass = ["active", "paid", "pending", "cancelled", "overdue"]
+        .includes(value) ? value : "pending";
+
+    return `<span class="status ${safeClass}">${safe(value)}</span>`;
+}
+
+function subscriptionTable(subscriptions) {
+    if (!subscriptions.length) {
+        return `<div class="empty-state">
+            <h3>No subscriptions yet</h3>
+            <p>Your subscriptions will appear here.</p>
+        </div>`;
+    }
+
+    return `
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Plan</th>
+                        ${isAdmin() ? "<th>Customer</th>" : ""}
+                        <th>Start date</th>
+                        <th>End date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${subscriptions.map(item => `
+                        <tr>
+                            <td><strong>${safe(getValue(item, "plan_name", "name") || "Subscription")}</strong></td>
+                            ${isAdmin() ? `<td>${safe(item.customer_name || item.customer_email || "—")}</td>` : ""}
+                            <td>${formatDate(item.start_date)}</td>
+                            <td>${formatDate(item.end_date)}</td>
+                            <td>${statusBadge(item.status)}</td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function renderTable(title, headers, rows, emptyText) {
+    if (!rows.length) {
+        return `<div class="empty-state">
+            <h3>No ${safe(title.toLowerCase())} yet</h3>
+            <p>${safe(emptyText || "Records will appear here when available.")}</p>
+        </div>`;
+    }
+
+    return `
+        <div class="table-scroll">
+            <table>
+                <thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+                <tbody>${rows.join("")}</tbody>
+            </table>
+        </div>`;
+}
+
+/* =========================================
+   PRODUCTS
+========================================= */
+
+async function renderProducts() {
+    const data = await api("/products");
+    const products = getArray(data, "products");
+
+    $("page-content").innerHTML = `
+        <div class="table-panel">
+            <div class="table-toolbar">
+                <h3>Product catalogue</h3>
+                <div class="toolbar-actions">
+                    <input class="search-input" id="product-search"
+                           placeholder="Search products...">
+                    <button class="action-button" id="add-product-button">+ Add product</button>
+                </div>
+            </div>
+            <div id="product-table">
+                ${renderProductTable(products)}
+            </div>
+        </div>
+    `;
+
+    $("add-product-button").addEventListener("click", showProductModal);
+
+    $("product-search").addEventListener("input", event => {
+        const query = event.target.value.toLowerCase();
+
+        $("product-table").innerHTML = renderProductTable(
+            products.filter(product =>
+                `${product.name} ${product.type}`.toLowerCase().includes(query)
+            )
+        );
+    });
+}
+
+function renderProductTable(products) {
+    return renderTable("Products",
+        ["Product", "Type", "Cost price", "Sales price", "Action"],
+        products.map(product => `
+            <tr>
+                <td><strong>${safe(product.name)}</strong></td>
+                <td>${safe(product.type || "—")}</td>
+                <td>${money(product.cost_price)}</td>
+                <td>${money(product.sales_price)}</td>
+                <td>
+                    <button class="row-action danger-action"
+                        onclick="deleteProduct(${Number(product.id)})">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+        `),
+        "Add your first product to start building plans."
     );
-  });
-
-  const titles = {
-    dashboard: "Dashboard",
-    products: "Products",
-    plans: "Plans",
-    customers: "Customers",
-    subscriptions: currentRole === "Admin"
-      ? "Subscriptions"
-      : "My Subscriptions",
-    invoices: currentRole === "Admin"
-      ? "Invoices"
-      : "My Invoices",
-    payments: "Payments"
-  };
-
-  document.getElementById("page-heading").textContent =
-    titles[page] || "Dashboard";
-
-  const pages = {
-    dashboard: dashboardPage,
-    products: productsPage,
-    plans: plansPage,
-    customers: customersPage,
-    subscriptions: subscriptionsPage,
-    invoices: invoicesPage,
-    payments: paymentsPage
-  };
-
-  pages[page]();
 }
 
-// ========================================
-// DASHBOARD
-// ========================================
+function showProductModal() {
+    openModal(`
+        <h2>Add new product</h2>
+        <form id="product-form">
+            <label>Product name</label>
+            <input name="name" placeholder="Enter product name" required>
 
-function dashboardPage() {
-  const data = getData();
+            <label>Product type</label>
+            <input name="type" placeholder="e.g. Software, Service" required>
 
-  const subscriptions = currentRole === "Admin"
-    ? data.subscriptions
-    : data.subscriptions.filter(item =>
-        item.customerId === currentUser.id
-      );
+            <label>Cost price (₹)</label>
+            <input name="cost_price" type="number" min="0" step="0.01" required>
 
-  const invoices = currentRole === "Admin"
-    ? data.invoices
-    : data.invoices.filter(item =>
-        item.customerId === currentUser.id
-      );
+            <label>Sales price (₹)</label>
+            <input name="sales_price" type="number" min="0" step="0.01" required>
 
-  const payments = currentRole === "Admin"
-    ? data.payments
-    : data.payments.filter(item =>
-        item.customerId === currentUser.id
-      );
+            <label>Description</label>
+            <textarea name="description" rows="3" placeholder="Describe your product"></textarea>
 
-  const activeSubscriptions = subscriptions.filter(
-    item => item.status === "Active"
-  ).length;
+            <div class="modal-actions">
+                <button type="button" class="secondary-button" onclick="closeModal()">Cancel</button>
+                <button class="action-button" type="submit">Save product</button>
+            </div>
+        </form>
+    `);
 
-  const paidAmount = payments.reduce(
-    (sum, payment) => sum + Number(payment.amount || 0),
-    0
-  );
+    $("product-form").addEventListener("submit", async event => {
+        event.preventDefault();
 
-  document.getElementById("page-content").innerHTML = `
-    <div class="dashboard-grid">
+        const form = new FormData(event.target);
 
-      <div class="stat-card">
-        <div class="stat-icon">🔄</div>
-        <p>Active Subscriptions</p>
-        <h3>${activeSubscriptions}</h3>
-      </div>
+        try {
+            await api("/products", {
+                method: "POST",
+                body: {
+                    name: form.get("name"),
+                    type: form.get("type"),
+                    cost_price: Number(form.get("cost_price")),
+                    sales_price: Number(form.get("sales_price")),
+                    description: form.get("description")
+                }
+            });
 
-      <div class="stat-card">
-        <div class="stat-icon">🧾</div>
-        <p>Total Invoices</p>
-        <h3>${invoices.length}</h3>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon">💳</div>
-        <p>${currentRole === "Admin" ? "Payments Received" : "My Payments"}</p>
-        <h3>${formatCurrency(paidAmount)}</h3>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon">📦</div>
-        <p>${currentRole === "Admin" ? "Total Products" : "My Subscriptions"}</p>
-        <h3>${currentRole === "Admin" ? data.products.length : subscriptions.length}</h3>
-      </div>
-
-    </div>
-
-    <div class="content-card">
-      <h3>Welcome, ${escapeHTML(currentUser.name)}</h3>
-      <p>
-        You are logged in as ${escapeHTML(currentRole)}.
-        ${
-          currentRole === "Admin"
-            ? "You can manage products, plans, customers, subscriptions, invoices and payments."
-            : "You can view your own subscriptions and invoices."
+            closeModal();
+            toast("Product added.");
+            navigate("products");
+        } catch (error) {
+            showError(error);
         }
-      </p>
-    </div>
-  `;
-}
-
-// ========================================
-// PRODUCTS
-// ========================================
-
-function productsPage() {
-  const data = getData();
-
-  document.getElementById("page-content").innerHTML = `
-    <div class="content-card">
-
-      <div class="section-header">
-        <h3>Product Management</h3>
-        <button class="btn btn-primary" onclick="openProductForm()">
-          + Add Product
-        </button>
-      </div>
-
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Product Name</th>
-              <th>Type</th>
-              <th>Cost Price</th>
-              <th>Sales Price</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            ${
-              data.products.map(product => `
-                <tr>
-                  <td>${escapeHTML(product.name)}</td>
-                  <td>${escapeHTML(product.type)}</td>
-                  <td>${formatCurrency(product.cost)}</td>
-                  <td>${formatCurrency(product.price)}</td>
-                  <td>
-                    <button class="btn btn-danger"
-                      onclick="deleteProduct('${product.id}')">
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              `).join("") || `
-                <tr><td colspan="5">No products available.</td></tr>
-              `
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function openProductForm() {
-  openModal("Add Product", `
-    <form id="product-form" class="form-grid">
-
-      <div class="form-group">
-        <label>Product Name</label>
-        <input name="name" required>
-      </div>
-
-      <div class="form-group">
-        <label>Product Type</label>
-        <select name="type" required>
-          <option value="">Select type</option>
-          <option value="Software">Software</option>
-          <option value="Service">Service</option>
-          <option value="Digital Product">Digital Product</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Cost Price</label>
-        <input name="cost" type="number" min="0" step="0.01" required>
-      </div>
-
-      <div class="form-group">
-        <label>Sales Price</label>
-        <input name="price" type="number" min="0" step="0.01" required>
-      </div>
-
-      <div class="form-group full-width">
-        <label>Description</label>
-        <textarea name="description"></textarea>
-      </div>
-
-      <div class="form-group full-width">
-        <button class="btn btn-primary" type="submit">
-          Save Product
-        </button>
-      </div>
-
-    </form>
-  `);
-
-  document.getElementById("product-form")
-    .addEventListener("submit", event => {
-      event.preventDefault();
-
-      const form = new FormData(event.target);
-      const data = getData();
-
-      data.products.push({
-        id: "product-" + Date.now(),
-        name: form.get("name").trim(),
-        type: form.get("type"),
-        cost: Number(form.get("cost")),
-        price: Number(form.get("price")),
-        description: form.get("description").trim()
-      });
-
-      saveData(data);
-      closeModal();
-      productsPage();
-      showToast("Product added successfully.");
     });
 }
 
-function deleteProduct(id) {
-  if (!confirm("Delete this product?")) return;
+async function deleteProduct(id) {
+    if (!await confirmDialog("Delete this product?",
+        "This can't be undone.", "Delete product", true)) return;
 
-  const data = getData();
-
-  data.products = data.products.filter(
-    product => product.id !== id
-  );
-
-  saveData(data);
-  productsPage();
-  showToast("Product deleted.");
+    try {
+        await api("/products/" + id, { method: "DELETE" });
+        toast("Product deleted.");
+        navigate("products");
+    } catch (error) {
+        showError(error);
+    }
 }
 
-// ========================================
-// PLANS
-// ========================================
+/* =========================================
+   PLANS
+========================================= */
 
-function plansPage() {
-  const data = getData();
+async function renderPlans() {
+    const [planData, productData] = await Promise.all([
+        api("/plans"),
+        api("/products")
+    ]);
 
-  document.getElementById("page-content").innerHTML = `
-    <div class="content-card">
+    const plans = getArray(planData, "plans");
+    const products = getArray(productData, "products");
 
-      <div class="section-header">
-        <h3>Subscription Plans</h3>
-        <button class="btn btn-primary" onclick="openPlanForm()">
-          + Add Plan
-        </button>
-      </div>
+    $("page-content").innerHTML = `
+        <div class="table-panel">
+            <div class="table-toolbar">
+                <h3>Subscription plans</h3>
+                <button class="action-button" id="add-plan-button">+ Create plan</button>
+            </div>
+            ${renderPlanTable(plans)}
+        </div>
+    `;
 
-      <div class="table-wrapper">
-        <table>
-          <thead>
+    $("add-plan-button").addEventListener("click", () => {
+        showPlanModal(products);
+    });
+}
+
+function renderPlanTable(plans) {
+    return renderTable("Plans",
+        ["Plan", "Product", "Price", "Billing cycle", "Action"],
+        plans.map(plan => `
             <tr>
-              <th>Plan Name</th>
-              <th>Product</th>
-              <th>Price</th>
-              <th>Billing Frequency</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            ${
-              data.plans.map(plan => `
-                <tr>
-                  <td>${escapeHTML(plan.name)}</td>
-                  <td>${escapeHTML(plan.productName)}</td>
-                  <td>${formatCurrency(plan.price)}</td>
-                  <td>${escapeHTML(plan.frequency)}</td>
-                  <td>
-                    <button class="btn btn-danger"
-                      onclick="deletePlan('${plan.id}')">
-                      Delete
+                <td><strong>${safe(plan.name)}</strong></td>
+                <td>${safe(plan.product_name || "—")}</td>
+                <td>${money(plan.price)}</td>
+                <td style="text-transform:capitalize">${safe(plan.frequency || "—")}</td>
+                <td>
+                    <button class="row-action danger-action"
+                        onclick="deletePlan(${Number(plan.id)})">
+                        Delete
                     </button>
-                  </td>
-                </tr>
-              `).join("") || `
-                <tr><td colspan="5">No plans available.</td></tr>
-              `
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
+                </td>
+            </tr>
+        `),
+        "Create a plan so customers can subscribe."
+    );
 }
 
-function openPlanForm() {
-  const data = getData();
-
-  if (!data.products.length) {
-    showToast("Please create a product first.");
-    return;
-  }
-
-  openModal("Create Subscription Plan", `
-    <form id="plan-form" class="form-grid">
-
-      <div class="form-group">
-        <label>Plan Name</label>
-        <input name="name" required>
-      </div>
-
-      <div class="form-group">
-        <label>Product</label>
-        <select name="productId" required>
-          <option value="">Select Product</option>
-          ${data.products.map(product => `
-            <option value="${product.id}">
-              ${escapeHTML(product.name)}
-            </option>
-          `).join("")}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Price</label>
-        <input name="price" type="number" min="0" step="0.01" required>
-      </div>
-
-      <div class="form-group">
-        <label>Billing Frequency</label>
-        <select name="frequency" required>
-          <option value="Daily">Daily</option>
-          <option value="Weekly">Weekly</option>
-          <option value="Monthly">Monthly</option>
-          <option value="Yearly">Yearly</option>
-        </select>
-      </div>
-
-      <div class="form-group full-width">
-        <button type="submit" class="btn btn-primary">
-          Save Plan
-        </button>
-      </div>
-
-    </form>
-  `);
-
-  document.getElementById("plan-form")
-    .addEventListener("submit", event => {
-      event.preventDefault();
-
-      const form = new FormData(event.target);
-      const product = data.products.find(
-        item => item.id === form.get("productId")
-      );
-
-      if (!product) {
-        showToast("Please select a valid product.");
+function showPlanModal(products) {
+    if (!products.length) {
+        toast("Add a product first, then create a plan.", "error");
         return;
-      }
+    }
 
-      data.plans.push({
-        id: "plan-" + Date.now(),
-        name: form.get("name").trim(),
-        productId: product.id,
-        productName: product.name,
-        price: Number(form.get("price")),
-        frequency: form.get("frequency")
-      });
+    openModal(`
+        <h2>Create subscription plan</h2>
+        <form id="plan-form">
+            <label>Plan name</label>
+            <input name="name" placeholder="e.g. Premium Monthly" required>
 
-      saveData(data);
-      closeModal();
-      plansPage();
-      showToast("Plan created successfully.");
-    });
-}
+            <label>Select product</label>
+            <select name="product_id" required>
+                <option value="">Choose product</option>
+                ${products.map(product => `
+                    <option value="${Number(product.id)}">${safe(product.name)}</option>
+                `).join("")}
+            </select>
 
-function deletePlan(id) {
-  if (!confirm("Delete this plan?")) return;
+            <label>Subscription price (₹)</label>
+            <input name="price" type="number" min="0" step="0.01" required>
 
-  const data = getData();
+            <label>Billing frequency</label>
+            <select name="frequency" required>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+            </select>
 
-  data.plans = data.plans.filter(plan => plan.id !== id);
+            <label>Description</label>
+            <textarea name="description" rows="3" placeholder="Describe this plan"></textarea>
 
-  saveData(data);
-  plansPage();
-  showToast("Plan deleted.");
-}
+            <div class="modal-actions">
+                <button type="button" class="secondary-button" onclick="closeModal()">Cancel</button>
+                <button class="action-button" type="submit">Create plan</button>
+            </div>
+        </form>
+    `);
 
-// ========================================
-// CUSTOMERS
-// ========================================
+    $("plan-form").addEventListener("submit", async event => {
+        event.preventDefault();
 
-function customersPage() {
-  if (currentRole !== "Admin") {
-    showToast("Access denied.");
-    return;
-  }
+        const form = new FormData(event.target);
 
-  const data = getData();
+        try {
+            await api("/plans", {
+                method: "POST",
+                body: {
+                    name: form.get("name"),
+                    product_id: Number(form.get("product_id")),
+                    price: Number(form.get("price")),
+                    frequency: form.get("frequency"),
+                    description: form.get("description")
+                }
+            });
 
-  document.getElementById("page-content").innerHTML = `
-    <div class="content-card">
-
-      <div class="section-header">
-        <h3>Customer Management</h3>
-      </div>
-
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Customer Name</th>
-              <th>Email Address</th>
-              <th>Registration Date</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            ${
-              data.customers.map(customer => `
-                <tr>
-                  <td>${escapeHTML(customer.name)}</td>
-                  <td>${escapeHTML(customer.email)}</td>
-                  <td>${formatDate(customer.createdAt)}</td>
-                </tr>
-              `).join("") || `
-                <tr><td colspan="3">No customers registered.</td></tr>
-              `
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-// ========================================
-// SUBSCRIPTIONS
-// ========================================
-
-function subscriptionsPage() {
-  const data = getData();
-
-  const subscriptions = currentRole === "Admin"
-    ? data.subscriptions
-    : data.subscriptions.filter(item =>
-        item.customerId === currentUser.id
-      );
-
-  document.getElementById("page-content").innerHTML = `
-    <div class="content-card">
-
-      <div class="section-header">
-        <h3>${currentRole === "Admin" ? "All Subscriptions" : "My Subscriptions"}</h3>
-
-        ${
-          currentRole === "Admin"
-            ? `<button class="btn btn-primary"
-                onclick="openSubscriptionForm()">
-                + Create Subscription
-              </button>`
-            : ""
+            closeModal();
+            toast("Plan created.");
+            navigate("plans");
+        } catch (error) {
+            showError(error);
         }
-      </div>
-
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Plan</th>
-              <th>Amount</th>
-              <th>Frequency</th>
-              <th>Status</th>
-              ${currentRole === "Admin" ? "<th>Actions</th>" : ""}
-            </tr>
-          </thead>
-
-          <tbody>
-            ${
-              subscriptions.map(subscription => `
-                <tr>
-                  <td>${escapeHTML(subscription.customerName)}</td>
-                  <td>${escapeHTML(subscription.planName)}</td>
-                  <td>${formatCurrency(subscription.amount)}</td>
-                  <td>${escapeHTML(subscription.frequency)}</td>
-                  <td>
-                    <span class="status ${statusClass(subscription.status)}">
-                      ${escapeHTML(subscription.status)}
-                    </span>
-                  </td>
-
-                  ${
-                    currentRole === "Admin"
-                      ? `<td>
-                          <button class="btn btn-danger"
-                            onclick="closeSubscription('${subscription.id}')">
-                            Close
-                          </button>
-                        </td>`
-                      : ""
-                  }
-                </tr>
-              `).join("") || `
-                <tr>
-                  <td colspan="${currentRole === "Admin" ? 6 : 5}">
-                    No subscriptions available.
-                  </td>
-                </tr>
-              `
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function openSubscriptionForm() {
-  const data = getData();
-
-  if (!data.plans.length || !data.customers.length) {
-    showToast("You need at least one customer and one plan.");
-    return;
-  }
-
-  openModal("Create Subscription", `
-    <form id="subscription-form" class="form-grid">
-
-      <div class="form-group full-width">
-        <label>Customer</label>
-        <select name="customerId" required>
-          <option value="">Select Customer</option>
-          ${data.customers.map(customer => `
-            <option value="${customer.id}">
-              ${escapeHTML(customer.name)} (${escapeHTML(customer.email)})
-            </option>
-          `).join("")}
-        </select>
-      </div>
-
-      <div class="form-group full-width">
-        <label>Subscription Plan</label>
-        <select name="planId" required>
-          <option value="">Select Plan</option>
-          ${data.plans.map(plan => `
-            <option value="${plan.id}">
-              ${escapeHTML(plan.name)} - ${formatCurrency(plan.price)}
-            </option>
-          `).join("")}
-        </select>
-      </div>
-
-      <div class="form-group full-width">
-        <button type="submit" class="btn btn-primary">
-          Create Subscription
-        </button>
-      </div>
-
-    </form>
-  `);
-
-  document.getElementById("subscription-form")
-    .addEventListener("submit", event => {
-      event.preventDefault();
-
-      const form = new FormData(event.target);
-      const customer = data.customers.find(
-        item => item.id === form.get("customerId")
-      );
-
-      const plan = data.plans.find(
-        item => item.id === form.get("planId")
-      );
-
-      if (!customer || !plan) {
-        showToast("Select a valid customer and plan.");
-        return;
-      }
-
-      const id = "subscription-" + Date.now();
-
-      data.subscriptions.push({
-        id,
-        customerId: customer.id,
-        customerName: customer.name,
-        planId: plan.id,
-        planName: plan.name,
-        amount: plan.price,
-        frequency: plan.frequency,
-        status: "Active",
-        createdAt: new Date().toISOString()
-      });
-
-      data.invoices.push({
-        id: "invoice-" + Date.now(),
-        subscriptionId: id,
-        customerId: customer.id,
-        customerName: customer.name,
-        amount: plan.price,
-        status: "Draft",
-        createdAt: new Date().toISOString()
-      });
-
-      saveData(data);
-      closeModal();
-      subscriptionsPage();
-      showToast("Subscription and draft invoice created.");
     });
 }
 
-function closeSubscription(id) {
-  if (!confirm("Close this subscription?")) return;
+async function deletePlan(id) {
+    if (!await confirmDialog("Delete this plan?",
+        "Customers will no longer be able to subscribe to it.", "Delete plan", true)) return;
 
-  const data = getData();
-
-  const subscription = data.subscriptions.find(
-    item => item.id === id
-  );
-
-  if (!subscription) return;
-
-  subscription.status = "Closed";
-
-  saveData(data);
-  subscriptionsPage();
-  showToast("Subscription closed.");
+    try {
+        await api("/plans/" + id, { method: "DELETE" });
+        toast("Plan deleted.");
+        navigate("plans");
+    } catch (error) {
+        showError(error);
+    }
 }
 
-// ========================================
-// INVOICES
-// ========================================
+/* =========================================
+   CUSTOMERS
+========================================= */
 
-function invoicesPage() {
-  const data = getData();
+async function renderCustomers() {
+    const data = await api("/customers");
+    const customers = getArray(data, "customers");
 
-  const invoices = currentRole === "Admin"
-    ? data.invoices
-    : data.invoices.filter(invoice =>
-        invoice.customerId === currentUser.id
-      );
+    $("page-content").innerHTML = `
+        <div class="table-panel">
+            <div class="table-toolbar">
+                <h3>Customer directory</h3>
+                <input class="search-input" id="customer-search"
+                       placeholder="Search customers...">
+            </div>
+            <div id="customer-table">
+                ${renderCustomerTable(customers)}
+            </div>
+        </div>
+    `;
 
-  document.getElementById("page-content").innerHTML = `
-    <div class="content-card">
+    $("customer-search").addEventListener("input", event => {
+        const query = event.target.value.toLowerCase();
 
-      <div class="section-header">
-        <h3>${currentRole === "Admin" ? "All Invoices" : "My Invoices"}</h3>
-      </div>
+        $("customer-table").innerHTML = renderCustomerTable(
+            customers.filter(customer =>
+                `${customer.name} ${customer.email}`.toLowerCase().includes(query)
+            )
+        );
+    });
+}
 
-      <div class="table-wrapper">
-        <table>
-          <thead>
+function renderCustomerTable(customers) {
+    return renderTable("Customers",
+        ["Customer", "Email", "Joined"],
+        customers.map(customer => `
             <tr>
-              <th>Invoice ID</th>
-              <th>Customer</th>
-              <th>Amount</th>
-              <th>Date</th>
-              <th>Status</th>
-              ${currentRole === "Admin" ? "<th>Actions</th>" : ""}
+                <td><strong>${safe(customer.name)}</strong></td>
+                <td>${safe(customer.email)}</td>
+                <td>${formatDate(customer.created_at)}</td>
             </tr>
-          </thead>
-
-          <tbody>
-            ${
-              invoices.map(invoice => `
-                <tr>
-                  <td>${escapeHTML(invoice.id)}</td>
-                  <td>${escapeHTML(invoice.customerName)}</td>
-                  <td>${formatCurrency(invoice.amount)}</td>
-                  <td>${formatDate(invoice.createdAt)}</td>
-                  <td>
-                    <span class="status ${statusClass(invoice.status)}">
-                      ${escapeHTML(invoice.status)}
-                    </span>
-                  </td>
-
-                  ${
-                    currentRole === "Admin"
-                      ? `<td>
-                          ${
-                            invoice.status !== "Paid"
-                              ? `<button class="btn btn-success"
-                                  onclick="markInvoicePaid('${invoice.id}')">
-                                  Mark Paid
-                                </button>`
-                              : "Completed"
-                          }
-                        </td>`
-                      : ""
-                  }
-                </tr>
-              `).join("") || `
-                <tr>
-                  <td colspan="${currentRole === "Admin" ? 6 : 5}">
-                    No invoices available.
-                  </td>
-                </tr>
-              `
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
+        `),
+        "Customers appear here after they create an account."
+    );
 }
 
-function markInvoicePaid(id) {
-  const data = getData();
+/* =========================================
+   SUBSCRIPTIONS
+========================================= */
 
-  const invoice = data.invoices.find(
-    item => item.id === id
-  );
+async function renderSubscriptions() {
+    const data = await api("/subscriptions");
+    const subscriptions = getArray(data, "subscriptions");
 
-  if (!invoice || invoice.status === "Paid") return;
-
-  invoice.status = "Paid";
-
-  data.payments.push({
-    id: "payment-" + Date.now(),
-    invoiceId: invoice.id,
-    customerId: invoice.customerId,
-    amount: invoice.amount,
-    date: new Date().toISOString(),
-    status: "Paid"
-  });
-
-  saveData(data);
-  invoicesPage();
-  showToast("Invoice marked as paid.");
+    $("page-content").innerHTML = `
+        <div class="table-panel">
+            <div class="table-toolbar">
+                <h3>${isAdmin() ? "All subscriptions" : "My subscriptions"}</h3>
+                ${isAdmin() ? "" : `<button class="action-button" onclick="navigate('browse')">+ Explore plans</button>`}
+            </div>
+            ${subscriptionTable(subscriptions)}
+        </div>
+    `;
 }
 
-// ========================================
-// PAYMENTS
-// ========================================
+/* =========================================
+   CUSTOMER PLAN BROWSER
+========================================= */
 
-function paymentsPage() {
-  if (currentRole !== "Admin") {
-    showToast("Access denied.");
-    return;
-  }
+async function renderBrowsePlans() {
+    const data = await api("/plans");
+    const plans = getArray(data, "plans");
 
-  const data = getData();
+    $("page-content").innerHTML = `
+        <div class="welcome-banner">
+            <div>
+                <h2>Find your perfect plan</h2>
+                <p>Explore our plans and choose what works for you.</p>
+            </div>
+            <div class="banner-tag">Your next step starts here</div>
+        </div>
 
-  document.getElementById("page-content").innerHTML = `
-    <div class="content-card">
+        ${plans.length ? `
+            <div class="cards-grid">
+                ${plans.map(plan => `
+                    <div class="product-card">
+                        <div class="product-card-icon">${ICON.diamond.replace("<svg", '<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"')}</div>
+                        <h3>${safe(plan.name)}</h3>
+                        <p>${safe(plan.product_name || plan.description || "Subscription plan")}</p>
+                        <div class="product-price">
+                            ${money(plan.price)}
+                            <small>/ ${safe(plan.frequency || "billing cycle")}</small>
+                        </div>
+                        <button class="action-button" data-name="${safe(plan.name)}"
+                            onclick="subscribeToPlan(${Number(plan.id)}, this.dataset.name)">
+                            Subscribe now
+                        </button>
+                    </div>
+                `).join("")}
+            </div>
+        ` : `
+            <div class="empty-state">
+                <h3>No plans available yet</h3>
+                <p>Check back later for new subscription plans.</p>
+            </div>
+        `}
+    `;
+}
 
-      <div class="section-header">
-        <h3>Payment Records</h3>
-      </div>
+async function subscribeToPlan(planId, planName) {
+    if (!await confirmDialog(`Subscribe to ${planName}?`,
+        "An invoice will be created for you automatically.", "Subscribe")) {
+        return;
+    }
 
-      <div class="table-wrapper">
-        <table>
-          <thead>
+    try {
+        await api("/subscriptions", {
+            method: "POST",
+            body: { plan_id: planId }
+        });
+
+        toast("Subscribed. Your invoice is ready.");
+        navigate("subscriptions");
+    } catch (error) {
+        showError(error);
+    }
+}
+
+/* =========================================
+   INVOICES
+========================================= */
+
+async function renderInvoices() {
+    const data = await api("/invoices");
+    const invoices = getArray(data, "invoices");
+
+    $("page-content").innerHTML = `
+        <div class="table-panel">
+            <div class="table-toolbar">
+                <h3>${isAdmin() ? "Invoice management" : "My invoices"}</h3>
+                <div class="toolbar-actions">
+                    <input class="search-input" id="invoice-search"
+                           placeholder="Search invoices...">
+                    ${isAdmin() ? `<button class="action-button" id="add-invoice-button">+ Create invoice</button>` : ""}
+                </div>
+            </div>
+            <div id="invoice-table">
+                ${renderInvoiceTable(invoices)}
+            </div>
+        </div>
+    `;
+
+    if (isAdmin()) {
+        $("add-invoice-button").addEventListener("click", showInvoiceModal);
+    }
+
+    $("invoice-search").addEventListener("input", event => {
+        const query = event.target.value.toLowerCase();
+
+        $("invoice-table").innerHTML = renderInvoiceTable(
+            invoices.filter(invoice =>
+                `${invoice.invoice_number || invoice.id} ${invoice.status} ${invoice.customer_name || ""}`
+                    .toLowerCase().includes(query)
+            )
+        );
+    });
+}
+
+function renderInvoiceTable(invoices) {
+    return renderTable("Invoices",
+        ["Invoice", ...(isAdmin() ? ["Customer"] : []),
+            "Total", "Due date", "Status", "Action"],
+        invoices.map(invoice => `
             <tr>
-              <th>Payment ID</th>
-              <th>Invoice ID</th>
-              <th>Amount</th>
-              <th>Payment Date</th>
-              <th>Status</th>
+                <td><strong>${safe(invoice.invoice_number || ("INV-" + invoice.id))}</strong></td>
+                ${isAdmin() ? `<td>${safe(invoice.customer_name || "—")}</td>` : ""}
+                <td>${money2(invoice.amount)}</td>
+                <td>${formatDate(invoice.due_date)}</td>
+                <td>${statusBadge(invoice.status)}</td>
+                <td>
+                    <button class="row-action"
+                        onclick="viewInvoice(${Number(invoice.id)})">View details</button>
+                    ${String(invoice.status).toLowerCase() !== "paid" && !isAdmin()
+                        ? `<button class="row-action"
+                            onclick="payInvoice(${Number(invoice.id)})">Pay now</button>`
+                        : ""}
+                </td>
             </tr>
-          </thead>
-
-          <tbody>
-            ${
-              data.payments.map(payment => `
-                <tr>
-                  <td>${escapeHTML(payment.id)}</td>
-                  <td>${escapeHTML(payment.invoiceId)}</td>
-                  <td>${formatCurrency(payment.amount)}</td>
-                  <td>${formatDate(payment.date)}</td>
-                  <td>
-                    <span class="status status-paid">
-                      ${escapeHTML(payment.status)}
-                    </span>
-                  </td>
-                </tr>
-              `).join("") || `
-                <tr><td colspan="5">No payments recorded.</td></tr>
-              `
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
+        `),
+        "Invoices are created when a customer subscribes to a plan."
+    );
 }
 
-// ========================================
-// MODAL FUNCTIONS
-// ========================================
+/* ---------- Invoice details (customer sees their own, admin sees all) ---------- */
 
-function openModal(title, content) {
-  document.getElementById("modal-title").textContent = title;
-  document.getElementById("modal-body").innerHTML = content;
-  document.getElementById("modal").hidden = false;
+function totalRow(label, value, extra = "") {
+    return `<div class="total-row ${extra}"><span>${label}</span><strong>${value}</strong></div>`;
+}
+
+async function viewInvoice(id) {
+    try {
+        const invoice = await api("/invoices/" + id);
+        const c = calcInvoice(invoice);
+        const paid = String(invoice.status).toLowerCase() === "paid";
+        const half = c.gstPct / 2;
+
+        openModal(`
+            <div class="invoice-doc">
+                <div class="invoice-head">
+                    <div>
+                        <div class="invoice-brand">brightloop</div>
+                        <h2>${safe(invoice.invoice_number || "INV-" + invoice.id)}</h2>
+                    </div>
+                    ${statusBadge(invoice.status)}
+                </div>
+
+                <div class="invoice-meta">
+                    <div><small>Billed to</small><strong>${safe(invoice.customer_name || "—")}</strong><span>${safe(invoice.customer_email || "")}</span></div>
+                    <div><small>Issued</small><strong>${formatDate(invoice.issue_date)}</strong></div>
+                    <div><small>Due</small><strong>${formatDate(invoice.due_date)}</strong></div>
+                </div>
+
+                <div class="table-scroll invoice-scroll">
+                    <table class="invoice-items">
+                        <thead>
+                            <tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Amount</th></tr>
+                        </thead>
+                        <tbody>
+                            ${c.items.map(item => `
+                                <tr>
+                                    <td>${safe(item.description)}</td>
+                                    <td class="num">${safe(item.qty)}</td>
+                                    <td class="num">${money2(item.unit_price)}</td>
+                                    <td class="num">${money2(Number(item.qty) * Number(item.unit_price))}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="invoice-totals">
+                    ${totalRow("Subtotal", money2(c.subtotal))}
+                    ${totalRow(`Discount (${c.discountPct}%)`, "− " + money2(c.discount), "discount")}
+                    ${totalRow("Taxable amount", money2(c.taxable))}
+                    ${totalRow(`CGST (${half}%)`, money2(c.cgst))}
+                    ${totalRow(`SGST (${half}%)`, money2(c.sgst))}
+                    ${totalRow("Total tax (GST " + c.gstPct + "%)", money2(c.tax), "muted")}
+                    ${totalRow(paid ? "Total paid" : "Total due", money2(c.total), "grand")}
+                </div>
+
+                ${isAdmin() && !paid ? `
+                    <div class="invoice-edit no-print">
+                        <label>Discount %
+                            <input id="inv-discount" type="number" min="0" max="100" step="0.5" value="${c.discountPct}">
+                        </label>
+                        <label>GST %
+                            <input id="inv-gst" type="number" min="0" max="100" step="0.5" value="${c.gstPct}">
+                        </label>
+                        <button type="button" class="secondary-button" onclick="saveInvoiceTerms(${Number(invoice.id)})">Save changes</button>
+                    </div>` : ""}
+
+                <div class="modal-actions no-print">
+                    <button type="button" class="secondary-button" onclick="window.print()">Print / save as PDF</button>
+                    <button type="button" class="secondary-button" onclick="closeModal()">Close</button>
+                    ${!paid && !isAdmin() ? `<button type="button" class="action-button" onclick="payInvoice(${Number(invoice.id)})">Pay now</button>` : ""}
+                    ${!paid && isAdmin() ? `<button type="button" class="action-button" onclick="markInvoicePaid(${Number(invoice.id)})">Mark as paid</button>` : ""}
+                </div>
+            </div>
+        `, true);
+    } catch (error) {
+        showError(error);
+    }
+}
+
+async function saveInvoiceTerms(id) {
+    try {
+        await api("/invoices/" + id, {
+            method: "PATCH",
+            body: {
+                discount_percent: Number($("inv-discount").value),
+                gst_percent: Number($("inv-gst").value)
+            }
+        });
+        toast("Invoice updated.");
+        await navigate("invoices");
+        await viewInvoice(id);
+    } catch (error) {
+        showError(error);
+    }
+}
+
+async function markInvoicePaid(id) {
+    if (!await confirmDialog("Mark this invoice as paid?",
+        "A payment for the full invoice total will be recorded.", "Mark as paid")) return;
+
+    try {
+        await api(`/invoices/${id}/pay`, { method: "POST" });
+        toast("Invoice marked as paid.");
+        navigate("invoices");
+    } catch (error) {
+        showError(error);
+    }
+}
+
+async function showInvoiceModal() {
+    try {
+        const customers = getArray(await api("/customers"), "customers");
+
+        openModal(`
+            <h2>Create invoice</h2>
+            <form id="invoice-form">
+                <label>Customer</label>
+                <select name="user_id" required>
+                    <option value="">Choose customer</option>
+                    ${customers.map(c => `<option value="${Number(c.id)}">${safe(c.name)} (${safe(c.email)})</option>`).join("")}
+                </select>
+
+                <label>Item description</label>
+                <input name="description" placeholder="e.g. Design Monthly plan" required>
+
+                <label>Quantity</label>
+                <input name="quantity" type="number" min="1" step="1" value="1" required>
+
+                <label>Unit price (₹)</label>
+                <input name="unit_price" type="number" min="0" step="0.01" required>
+
+                <label>Discount (%)</label>
+                <input name="discount_percent" type="number" min="0" max="100" step="0.5" value="0">
+
+                <label>GST (%)</label>
+                <input name="gst_percent" type="number" min="0" max="100" step="0.5" value="18">
+
+                <div class="modal-actions">
+                    <button type="button" class="secondary-button" onclick="closeModal()">Cancel</button>
+                    <button class="action-button" type="submit">Create invoice</button>
+                </div>
+            </form>
+        `);
+
+        $("invoice-form").addEventListener("submit", async event => {
+            event.preventDefault();
+            const form = new FormData(event.target);
+
+            try {
+                await api("/invoices", {
+                    method: "POST",
+                    body: Object.fromEntries(form.entries())
+                });
+                closeModal();
+                toast("Invoice created.");
+                navigate("invoices");
+            } catch (error) {
+                showError(error);
+            }
+        });
+    } catch (error) {
+        showError(error);
+    }
+}
+
+async function payInvoice(id) {
+    if (!await confirmDialog("Pay this invoice?",
+        "This uses the demo payment system, so no real money is charged.", "Pay now")) {
+        return;
+    }
+
+    try {
+        await api(`/invoices/${id}/pay`, { method: "POST" });
+        toast("Payment successful.");
+        navigate("invoices");
+    } catch (error) {
+        showError(error);
+    }
+}
+
+/* =========================================
+   PAYMENTS
+========================================= */
+
+async function renderPayments() {
+    const data = await api("/payments");
+    const payments = getArray(data, "payments");
+
+    $("page-content").innerHTML = `
+        <div class="table-panel">
+            <div class="table-toolbar">
+                <h3>Payment history</h3>
+            </div>
+            ${renderTable("Payments",
+                ["Payment ID", "Invoice", "Amount", "Date", "Status"],
+                payments.map(payment => `
+                    <tr>
+                        <td>#${safe(payment.id)}</td>
+                        <td>${safe(payment.invoice_number || payment.invoice_id || "—")}</td>
+                        <td>${money(payment.amount)}</td>
+                        <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                        <td>${statusBadge(payment.status || "paid")}</td>
+                    </tr>
+                `),
+                "Payments appear here once invoices are paid."
+            )}
+        </div>
+    `;
+}
+
+/* =========================================
+   REPORTS
+========================================= */
+
+async function renderReports() {
+    const data = await api("/stats");
+    const stats = data.stats || data;
+
+    $("page-content").innerHTML = `
+        <div class="welcome-banner">
+            <div>
+                <h2>Business insights</h2>
+                <p>A quick look at your subscription business performance.</p>
+            </div>
+            <div class="banner-tag">Admin reports</div>
+        </div>
+
+        <div class="stats-grid">
+            ${statCard("rupee", "Total revenue",
+                money(getValue(stats, "total_revenue", "revenue")))}
+            ${statCard("loop", "Active subscriptions",
+                getValue(stats, "active_subscriptions", "active"))}
+            ${statCard("user", "Customers",
+                getValue(stats, "total_customers", "customers"))}
+            ${statCard("box", "Products",
+                getValue(stats, "total_products", "products"))}
+        </div>
+
+        <div class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h3>Business summary</h3>
+                    <p>Current figures from your Brightloop database</p>
+                </div>
+            </div>
+            <div class="activity-list">
+                ${reportRow("Total revenue", money(getValue(stats, "total_revenue", "revenue")))}
+                ${reportRow("Active subscriptions", getValue(stats, "active_subscriptions", "active"))}
+                ${reportRow("Total customers", getValue(stats, "total_customers", "customers"))}
+                ${reportRow("Total products", getValue(stats, "total_products", "products"))}
+            </div>
+        </div>
+    `;
+}
+
+function reportRow(label, value) {
+    return `
+        <div class="activity-item">
+            <div class="activity-text"><strong>${safe(label)}</strong></div>
+            <strong>${safe(value)}</strong>
+        </div>`;
+}
+
+/* =========================================
+   MODAL HELPERS
+========================================= */
+
+let confirmResolver = null;
+
+function openModal(content, wide = false) {
+    $("modal-content").innerHTML = content;
+    document.querySelector(".modal-box").classList.toggle("wide", wide);
+    $("modal").classList.remove("hidden");
 }
 
 function closeModal() {
-  document.getElementById("modal").hidden = true;
-  document.getElementById("modal-body").innerHTML = "";
+    $("modal").classList.add("hidden");
+    document.querySelector(".modal-box").classList.remove("wide");
+    $("modal-content").innerHTML = "";
+
+    if (confirmResolver) {
+        confirmResolver(false);
+        confirmResolver = null;
+    }
 }
 
-// ========================================
-// LOGOUT
-// ========================================
+/* Styled replacement for the browser's confirm() pop-up */
+function confirmDialog(title, text, confirmLabel = "Confirm", danger = false) {
+    return new Promise(resolve => {
+        openModal(`
+            <h2>${safe(title)}</h2>
+            <p style="color:var(--muted);line-height:1.6">${safe(text)}</p>
+            <div class="modal-actions">
+                <button type="button" class="secondary-button" id="confirm-no">Cancel</button>
+                <button type="button" class="action-button" id="confirm-yes"
+                    ${danger ? 'style="background:var(--red)"' : ""}>${safe(confirmLabel)}</button>
+            </div>
+        `);
 
-function logout() {
-  currentUser = null;
-  currentRole = null;
-  currentPage = "dashboard";
+        confirmResolver = resolve;
 
-  document.getElementById("main-app").hidden = true;
-  document.getElementById("auth-page").hidden = false;
-
-  document.getElementById("login-form").reset();
-  document.getElementById("register-form").reset();
-
-  showAuthPanel("login");
-
-  selectLoginRole(
-    "Admin",
-    document.getElementById("admin-option")
-  );
-
-  document.getElementById("login-error").textContent = "";
+        $("confirm-no").addEventListener("click", closeModal);
+        $("confirm-yes").addEventListener("click", () => {
+            confirmResolver = null;
+            closeModal();
+            resolve(true);
+        });
+        $("confirm-yes").focus();
+    });
 }
 
-// ========================================
-// HELPER FUNCTIONS
-// ========================================
+$("modal-backdrop").addEventListener("click", closeModal);
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2
-  }).format(Number(amount) || 0);
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeModal();
+});
+
+/* Stop double-clicks from submitting a form twice */
+document.addEventListener("submit", (event) => {
+    const button = event.target.querySelector("button[type=submit], button:not([type])");
+    if (!button) return;
+    button.disabled = true;
+    setTimeout(() => { button.disabled = false; }, 1500);
+}, true);
+
+/* =========================================
+   SESSION CHECK
+========================================= */
+
+async function checkSession() {
+    try {
+        const data = await api("/me");
+        currentUser = data.user || data;
+
+        if (currentUser && currentUser.email) {
+            await startApp();
+        } else {
+            $("auth-page").classList.remove("hidden");
+            $("app").classList.add("hidden");
+        }
+    } catch (error) {
+        currentUser = null;
+        $("auth-page").classList.remove("hidden");
+        $("app").classList.add("hidden");
+        setRole(authRole);
+    }
 }
 
-function formatDate(date) {
-  if (!date) return "-";
+/* =========================================
+   INITIALIZE
+========================================= */
 
-  return new Date(date).toLocaleDateString("en-IN");
-}
-
-function statusClass(status) {
-  const classes = {
-    Active: "status-active",
-    Paid: "status-paid",
-    Draft: "status-draft",
-    Pending: "status-pending",
-    Confirmed: "status-confirmed",
-    Closed: "status-closed",
-    Cancelled: "status-cancelled"
-  };
-
-  return classes[status] || "status-pending";
-}
-
-function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, character => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[character]);
-}
-
-function showToast(message) {
-  const toast = document.getElementById("toast");
-
-  toast.textContent = message;
-  toast.classList.add("show");
-
-  clearTimeout(showToast.timeout);
-
-  showToast.timeout = setTimeout(() => {
-    toast.classList.remove("show");
-  }, 3000);
-}
-
-// ========================================
-// START APPLICATION
-// ========================================
-
-document.addEventListener("DOMContentLoaded", initializeApp);
+document.addEventListener("DOMContentLoaded", () => {
+    checkSession();
+});
